@@ -19,8 +19,9 @@ END_FRAME = 9999  # Frame of video to end analysis at
 
 MEASURED_OBJECT_DEPTH = 80  # cm, value from TrueDepth sensor
 
-REAL_OBJECT_DEPTH = VIDEO_FILEPATH.split('_')[1]  # cm, used in plot title only
-REAL_AMPLITUDE = VIDEO_FILEPATH.split('_')[2]  # cm, used in plot title only
+# The following are used in the plot title only:
+REAL_OBJECT_DEPTH = VIDEO_FILEPATH.split('_')[1]  # cm
+REAL_AMPLITUDE = VIDEO_FILEPATH.split('_')[2].split('.')[0]  # cm
 
 
 # -----------------------------------------------------------------------------
@@ -83,6 +84,8 @@ def findPendulumBobMidpoint(frame, detector, firstFrame):
         imgKP = cv2.drawKeypoints(frame, keypoints, np.array([]), (0, 0, 255),
                                   cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         cv2.imwrite('data/firstFrame.jpg', imgKP)
+        plt.imshow(cv2.cvtColor(imgKP, cv2.COLOR_BGR2RGB))
+        plt.show()
         input("Check first frame, and press enter to continue...")
         print("Continuing...")
 
