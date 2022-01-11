@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import matplotlib.pyplot as plt
+import numpy as np
 import cv2
 
 
@@ -10,41 +11,84 @@ CAMERA_FOCAL_LENGTH_STD = 32  # mm
 OBJECT_DEPTH = 40  # cm
 
 VIDEO_WIDTH = 1080
-VIDEO_FILEPATH = './IMG_1224.mov'
-START_FRAME = 570
+VIDEO_FILEPATH = 'data/IMG_1224.mov'
+START_FRAME = 540
 END_FRAME = 9999
 
 
 # -----------------------------------------------------------------------------
 # V I D E O  P R O C E S S I N G
 
-def handleFrame(frame):
-    cv2.imwrite('1.jpg', frame)
+def setUpBlobDetector():
+    params = cv2.SimpleBlobDetector_Params()
+
+    params.minThreshold = 0
+    params.maxThreshold = 255
+    # params.thresholdStep = 10
+
+    params.filterByArea = True
+    params.minArea = 2500
+    params.maxArea = 25000
+
+    params.filterByCircularity = False
+    params.filterByColor = False
+    params.filterByConvexity = False
+    params.filterByInertia = False
+
+    detector = cv2.SimpleBlobDetector_create(params)
+    return detector
+
+
+def findPendulumMidpoint(frame, detector):
+
+    # Pre-process image ready for blob detection:
+    cv2.imwrite('data/frame.jpg', frame)
     grayscaled = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(grayscaled, (5, 5), 0)
-    (T, thresholded) = cv2.threshold(blurred, 50, 255, cv2.THRESH_BINARY)
-    cv2.imwrite('2.jpg', thresholded)
+    (__, thresholded) = cv2.threshold(blurred, 50, 255, cv2.THRESH_BINARY)
+
+    keypoints = detector.detect(thresholded)
     
-    # TODO detect blob and find midpoint. Return this value
+    imgWithKeypoints = cv2.drawKeypoints(frame, keypoints, np.array([]), (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    cv2.imwrite('data/keypoints.jpg', imgWithKeypoints)
+    
+    if len(keypoints) != 1:
+        return -1
+    
+    # Return the midpoint of the keypoint:
+    for kp in keypoints:
+        return round(kp.pt[0])
+
 
 
 def processVideo():
-    minLeft = 0
-    maxRight = VIDEO_WIDTH
+    minLeft = VIDEO_WIDTH
+    maxRight = 0
+    path = []
+    pathFrameNumbers = []
+    failedFrames = 0
     
     capture = cv2.VideoCapture(VIDEO_FILEPATH)
     frameN = 0
+    detector = setUpBlobDetector()
     while (True):
         success, frame = capture.read()
         if success:
             frameN += 1
             if START_FRAME <= frameN <= END_FRAME:
-                handleFrame(frame)
-                break
+                mp = findPendulumMidpoint(frame, detector)
+                if mp == -1:
+                    failedFrames += 1
+                else:
+                    path.append(mp)
+                    pathFrameNumbers.append(frameN)
+                    if mp < minLeft:
+                        minLeft = mp
+                    if mp > maxRight:
+                        maxRight = mp
         else:
             break
     capture.release()
-    print(frameN)
     
     pixelDistance = maxRight - minLeft
     return pixelDistance
@@ -93,6 +137,9 @@ def calcCropSensorWidth(sensorWidth, nativeAspectRatio, mediaAspectRatio):
 # M A I N  F U N C T I O N
 
 def main():
+    
+    
+    
     videoSensorWidth = calcCropSensorWidth(CAMERA_SENSOR_WIDTH,
                                            (4, 3), (16, 9))
     pixelSize = calcPixelSize(VIDEO_WIDTH, videoSensorWidth,
