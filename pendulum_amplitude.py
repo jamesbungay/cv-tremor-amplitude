@@ -8,12 +8,40 @@ import cv2
 CAMERA_FOCAL_LENGTH = 2.87  # mm
 CAMERA_FOCAL_LENGTH_STD = 32  # mm
 
-OBJECT_DEPTH = 40  # cm
+OBJECT_DEPTH = 70  # cm
+REAL_AMPLITUDE = 12  # cm, the observed amplitude of the pendulum
 
-VIDEO_WIDTH = 1080
-VIDEO_FILEPATH = 'data/IMG_1224.mov'
-START_FRAME = 540
+VIDEO_FILEPATH = 'data/pendulum_depth-70_ampl-12.mov'
+VIDEO_WIDTH = 1080  # resolution, pixels
+VIDEO_FRAMERATE = 60  # frames per second
+
+START_FRAME = 300
 END_FRAME = 9999
+
+
+# -----------------------------------------------------------------------------
+# P A T H  P L O T T I N G
+
+
+def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
+    path = list(map(lambda x: (x - minLeft - ((maxRight - minLeft) / 2))
+                    * pixelSize / 10, path))
+    pathTime = list(map(lambda x: float((x - START_FRAME) / VIDEO_FRAMERATE),
+                        pathTime))
+    print(pixelSize)
+
+    xPoints = np.array(pathTime)
+    yPoints = np.array(path)
+
+    plt.plot(xPoints, yPoints)
+
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Pendulum Amplitude (cm)')
+    plt.title('Measured Pendulum Amplitude Over Time with a\n' +
+              '%dcm Initial Amplitude at a Depth of %dcm'
+              % (REAL_AMPLITUDE, OBJECT_DEPTH))
+
+    plt.show()
 
 
 # -----------------------------------------------------------------------------
@@ -39,35 +67,37 @@ def setUpBlobDetector():
     return detector
 
 
-def findPendulumMidpoint(frame, detector):
+def findPendulumBobMidpoint(frame, detector, firstFrame):
 
     # Pre-process image ready for blob detection:
-    cv2.imwrite('data/frame.jpg', frame)
     grayscaled = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(grayscaled, (5, 5), 0)
     (__, thresholded) = cv2.threshold(blurred, 50, 255, cv2.THRESH_BINARY)
 
     keypoints = detector.detect(thresholded)
-    
-    imgWithKeypoints = cv2.drawKeypoints(frame, keypoints, np.array([]), (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    cv2.imwrite('data/keypoints.jpg', imgWithKeypoints)
-    
+
+    if firstFrame:
+        imgKP = cv2.drawKeypoints(frame, keypoints, np.array([]), (0, 0, 255),
+                                  cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        cv2.imwrite('data/firstFrame.jpg', imgKP)
+        input("Check first frame, and press enter to continue...")
+        print("Continuing...")
+
     if len(keypoints) != 1:
         return -1
-    
+
     # Return the midpoint of the keypoint:
     for kp in keypoints:
         return round(kp.pt[0])
 
 
-
-def processVideo():
+def computePendulumPath():
     minLeft = VIDEO_WIDTH
     maxRight = 0
     path = []
     pathFrameNumbers = []
     failedFrames = 0
-    
+
     capture = cv2.VideoCapture(VIDEO_FILEPATH)
     frameN = 0
     detector = setUpBlobDetector()
@@ -76,7 +106,8 @@ def processVideo():
         if success:
             frameN += 1
             if START_FRAME <= frameN <= END_FRAME:
-                mp = findPendulumMidpoint(frame, detector)
+                mp = findPendulumBobMidpoint(frame, detector,
+                                             frameN == START_FRAME)
                 if mp == -1:
                     failedFrames += 1
                 else:
@@ -89,9 +120,8 @@ def processVideo():
         else:
             break
     capture.release()
-    
-    pixelDistance = maxRight - minLeft
-    return pixelDistance
+
+    return path, pathFrameNumbers, minLeft, maxRight, failedFrames
 
 
 # -----------------------------------------------------------------------------
@@ -109,10 +139,14 @@ def calcPixelSize(imageResolution, sensorWidth, lensFocalLength, depth):
 
     Parameters
     ----------
-    imageResolution: The width of an image in pixels.
-    sensorWidth: The width of the camera sensor in mm.
-    lensFocalLength: Focal length of the lens, in mm.
-    depth: The depth at which the width of a pixel is to be calculated, in cm.
+    imageResolution : The width of an image in pixels.
+    sensorWidth : The width of the camera sensor in mm.
+    lensFocalLength : Focal length of the lens, in mm.
+    depth : The depth at which the width of a pixel is to be calculated, in cm.
+    
+    Returns
+    -------
+    pixelSize : Size of a pixel at the given depth, in mm.
     """
 
     # TODO: adjust for error. See phone photos 3/12. take depth error as input
@@ -137,23 +171,26 @@ def calcCropSensorWidth(sensorWidth, nativeAspectRatio, mediaAspectRatio):
 # M A I N  F U N C T I O N
 
 def main():
-    
-    
-    
+
+    path, pathTime, minLeft, maxRight, failedFrames = computePendulumPath()
+
     videoSensorWidth = calcCropSensorWidth(CAMERA_SENSOR_WIDTH,
                                            (4, 3), (16, 9))
     pixelSize = calcPixelSize(VIDEO_WIDTH, videoSensorWidth,
                               CAMERA_FOCAL_LENGTH, OBJECT_DEPTH)
 
+    plotPath(pathTime, path, minLeft, maxRight, pixelSize)
+
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
-    amplitudePixelDistance = processVideo()
+    amplitudePixelDistance = maxRight - minLeft
     amplitude = amplitudePixelDistance * pixelSize / 10
 
     depthError = "N"  # TODO implement
 
-    print("Pendulum amplitude (peak-to-trough) = %f +/- %s cm"
+    print("Pendulum amplitude (peak-to-trough) = %.1f +/- %s cm"
           % (amplitude, depthError))
+    print("Frames where pendulum bob detection failed: %d" % failedFrames)
 
 
 main()
