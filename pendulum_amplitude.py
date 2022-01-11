@@ -11,14 +11,14 @@ CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
 CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
-VIDEO_FILEPATH = 'data/pendulum_80_30.mov'
+VIDEO_FILEPATH = 'data/pendulum_50_4.mov'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 
 START_FRAME = 600  # Frame of video to start analysis at
 END_FRAME = 9999  # Frame of video to end analysis at
 
-MEASURED_OBJECT_DEPTH = 80  # cm, value from TrueDepth sensor
+MEASURED_OBJECT_DEPTH = 50  # cm, value from TrueDepth sensor
 MEASURED_OBJECT_DEPTH_ERR = 0  # +/- cm, error of value from TrueDepth sensor
 
 # The following are used in the plot title only:
@@ -29,10 +29,9 @@ REAL_AMPLITUDE = VIDEO_FILEPATH.split('_')[2].split('.')[0]  # cm
 # -----------------------------------------------------------------------------
 # P A T H  P L O T T I N G
 
-
 def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
     path = list(map(lambda x: (x - minLeft - ((maxRight - minLeft) / 2))
-                    * pixelSize / 10, path))
+                    * pixelSize, path))
     pathTime = list(map(lambda x: float((x - START_FRAME) / VIDEO_FRAMERATE),
                         pathTime))
 
@@ -61,7 +60,7 @@ def setUpBlobDetector():
     # params.thresholdStep = 10
 
     params.filterByArea = True
-    params.minArea = 2500
+    params.minArea = 1500
     params.maxArea = 25000
 
     params.filterByCircularity = False
@@ -150,13 +149,13 @@ def calcPixelSize(imageResolution, sensorWidth, lensFocalLength, depth):
 
     Returns
     -------
-    pixelSize : Size of a pixel at the given depth, in mm.
+    pixelSize : Size of a pixel at the given depth, in cm.
     """
 
     # TODO: adjust for error. See phone photos 3/12. take depth error as input
     # and output a tuple, of width and error.
 
-    viewWidth = depth * 10 * sensorWidth / lensFocalLength
+    viewWidth = depth * sensorWidth / lensFocalLength
     return viewWidth / imageResolution
 
 
@@ -201,12 +200,17 @@ def main():
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
     amplitudePixelDistance = maxRight - minLeft
-    amplitude = amplitudePixelDistance * pixelSize / 10
+    amplitude = amplitudePixelDistance * pixelSize
 
-    depthError = "N"  # TODO implement
+    # There are two measurable sources of error:
+    #   1. From the depth measurement from the TrueDepth sensor
+    #   2. From each pixel representing discrete areas of continuous space
+    depthError = 0.0  # TODO implement
+    pixelSizeError = (0.5 * pixelSize) * 2  # Bad code, to emphasise meaning
+    amplitudeError = depthError + pixelSizeError
 
-    print("Pendulum amplitude (peak-to-trough) = %.1f +/- %s cm"
-          % (amplitude, depthError))
+    print("Pendulum amplitude (peak-to-trough) = %.1f +/- %.2f cm"
+          % (amplitude, amplitudeError))
     print("Frames where pendulum bob detection failed: %d" % failedFrames)
 
 
