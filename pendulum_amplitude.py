@@ -3,12 +3,13 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+import math
 
 
 CAMERA_FOCAL_LENGTH = 2.87  # mm, focal length of camera lens
 CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
-CAMERA_NATIVE_ASPECT = (4, 3)  # Native aspect ratio of camera sensor
-CAMERA_VIDEO_ASPECT = (16, 9)  # Aspect ratio of video recorded by camera
+CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
+CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
 VIDEO_FILEPATH = 'data/pendulum_80_30.mov'
 VIDEO_WIDTH = 1080  # resolution, pixels
@@ -18,6 +19,7 @@ START_FRAME = 600  # Frame of video to start analysis at
 END_FRAME = 9999  # Frame of video to end analysis at
 
 MEASURED_OBJECT_DEPTH = 80  # cm, value from TrueDepth sensor
+MEASURED_OBJECT_DEPTH_ERR = 0  # +/- cm, error of value from TrueDepth sensor
 
 # The following are used in the plot title only:
 REAL_OBJECT_DEPTH = VIDEO_FILEPATH.split('_')[1]  # cm
@@ -135,12 +137,6 @@ def computePendulumPath():
 # -----------------------------------------------------------------------------
 # C A M E R A  P A R A M E T E R  C A L C U L A T I O N
 
-# TODO derive these constants, rather than hardcoding
-
-CAMERA_SENSOR_WIDTH = 2.328
-CAMERA_SENSOR_HEIGHT = 3.104
-
-
 def calcPixelSize(imageResolution, sensorWidth, lensFocalLength, depth):
     """
     Calculate the width, in mm, of a pixel in an image at a given depth.
@@ -170,9 +166,19 @@ def calcCropSensorWidth(sensorWidth, nativeAspectRatio, mediaAspectRatio):
     recorded at non-native aspect ratio.
     """
 
-    cropRatio = (nativeAspectRatio[0] / nativeAspectRatio[1]
-                 ) / (mediaAspectRatio[0] / mediaAspectRatio[1])
+    cropRatio = (nativeAspectRatio[1] / nativeAspectRatio[0]
+                 ) / (mediaAspectRatio[1] / mediaAspectRatio[0])
     return sensorWidth * cropRatio
+
+
+def calcSensorSize(focalLength, focalLength35mmEquiv, sensorAspectRatio):
+    cropFactor = focalLength35mmEquiv / focalLength
+    # n.b. 43.27mm is the diagonal size of a full-frame 35mm sensor:
+    sensorDiagonalLength = 43.27 / cropFactor
+    angle = math.atan(sensorAspectRatio[1] / sensorAspectRatio[0])
+    sensorWidth = math.cos(angle) * sensorDiagonalLength
+    sensorHeight = math.sin(angle) * sensorDiagonalLength
+    return sensorWidth, sensorHeight
 
 
 # -----------------------------------------------------------------------------
@@ -181,7 +187,10 @@ def calcCropSensorWidth(sensorWidth, nativeAspectRatio, mediaAspectRatio):
 def main():
     path, pathTime, minLeft, maxRight, failedFrames = computePendulumPath()
 
-    videoSensorWidth = calcCropSensorWidth(CAMERA_SENSOR_WIDTH,
+    cameraSensorWidth, __ = calcSensorSize(CAMERA_FOCAL_LENGTH,
+                                           CAMERA_FOCAL_LENGTH_STD,
+                                           CAMERA_NATIVE_ASPECT)
+    videoSensorWidth = calcCropSensorWidth(cameraSensorWidth,
                                            CAMERA_NATIVE_ASPECT,
                                            CAMERA_VIDEO_ASPECT)
     pixelSize = calcPixelSize(VIDEO_WIDTH, videoSensorWidth,
