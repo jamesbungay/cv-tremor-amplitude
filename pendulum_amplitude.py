@@ -5,18 +5,22 @@ import numpy as np
 import cv2
 
 
-CAMERA_FOCAL_LENGTH = 2.87  # mm
-CAMERA_FOCAL_LENGTH_STD = 32  # mm
+CAMERA_FOCAL_LENGTH = 2.87  # mm, focal length of camera lens
+CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
+CAMERA_NATIVE_ASPECT = (4, 3)  # Native aspect ratio of camera sensor
+CAMERA_VIDEO_ASPECT = (16, 9)  # Aspect ratio of video recorded by camera
 
-OBJECT_DEPTH = 70  # cm
-REAL_AMPLITUDE = 12  # cm, the observed amplitude of the pendulum
-
-VIDEO_FILEPATH = 'data/pendulum_depth-70_ampl-12.mov'
+VIDEO_FILEPATH = 'data/pendulum_80_30.mov'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 
-START_FRAME = 300
-END_FRAME = 9999
+START_FRAME = 600  # Frame of video to start analysis at
+END_FRAME = 9999  # Frame of video to end analysis at
+
+MEASURED_OBJECT_DEPTH = 80  # cm, value from TrueDepth sensor
+
+REAL_OBJECT_DEPTH = VIDEO_FILEPATH.split('_')[1]  # cm, used in plot title only
+REAL_AMPLITUDE = VIDEO_FILEPATH.split('_')[2]  # cm, used in plot title only
 
 
 # -----------------------------------------------------------------------------
@@ -28,7 +32,6 @@ def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
                     * pixelSize / 10, path))
     pathTime = list(map(lambda x: float((x - START_FRAME) / VIDEO_FRAMERATE),
                         pathTime))
-    print(pixelSize)
 
     xPoints = np.array(pathTime)
     yPoints = np.array(path)
@@ -38,8 +41,8 @@ def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
     plt.xlabel('Time (seconds)')
     plt.ylabel('Pendulum Amplitude (cm)')
     plt.title('Measured Pendulum Amplitude Over Time with a\n' +
-              '%dcm Initial Amplitude at a Depth of %dcm'
-              % (REAL_AMPLITUDE, OBJECT_DEPTH))
+              '%scm Initial Amplitude at a Depth of %scm'
+              % (REAL_AMPLITUDE, REAL_OBJECT_DEPTH))
 
     plt.show()
 
@@ -98,6 +101,8 @@ def computePendulumPath():
     pathFrameNumbers = []
     failedFrames = 0
 
+    print("Computing pendulum path for %s ..." % VIDEO_FILEPATH)
+
     capture = cv2.VideoCapture(VIDEO_FILEPATH)
     frameN = 0
     detector = setUpBlobDetector()
@@ -143,7 +148,7 @@ def calcPixelSize(imageResolution, sensorWidth, lensFocalLength, depth):
     sensorWidth : The width of the camera sensor in mm.
     lensFocalLength : Focal length of the lens, in mm.
     depth : The depth at which the width of a pixel is to be calculated, in cm.
-    
+
     Returns
     -------
     pixelSize : Size of a pixel at the given depth, in mm.
@@ -171,13 +176,13 @@ def calcCropSensorWidth(sensorWidth, nativeAspectRatio, mediaAspectRatio):
 # M A I N  F U N C T I O N
 
 def main():
-
     path, pathTime, minLeft, maxRight, failedFrames = computePendulumPath()
 
     videoSensorWidth = calcCropSensorWidth(CAMERA_SENSOR_WIDTH,
-                                           (4, 3), (16, 9))
+                                           CAMERA_NATIVE_ASPECT,
+                                           CAMERA_VIDEO_ASPECT)
     pixelSize = calcPixelSize(VIDEO_WIDTH, videoSensorWidth,
-                              CAMERA_FOCAL_LENGTH, OBJECT_DEPTH)
+                              CAMERA_FOCAL_LENGTH, MEASURED_OBJECT_DEPTH)
 
     plotPath(pathTime, path, minLeft, maxRight, pixelSize)
 
