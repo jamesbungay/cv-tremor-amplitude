@@ -29,6 +29,10 @@ REAL_AMPLITUDE = VIDEO_FILEPATH.split('_')[2].split('.')[0]  # cm
 # P A T H  P L O T T I N G
 
 def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
+    """
+    Plot the path of oscillation of a pendulum bob over time.
+    """
+
     path = list(map(lambda x: (x - minLeft - ((maxRight - minLeft) / 2))
                     * pixelSize, path))
     pathTime = list(map(lambda x: float((x - START_FRAME) / VIDEO_FRAMERATE),
@@ -53,6 +57,10 @@ def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
 # V I D E O  P R O C E S S I N G
 
 def setUpBlobDetector():
+    """
+    Configure parameters for a cv2 blob detector, and returns the detector.
+    """
+
     params = cv2.SimpleBlobDetector_Params()
 
     params.minThreshold = 0
@@ -72,6 +80,11 @@ def setUpBlobDetector():
 
 
 def findPendulumBobMidpoint(frame, detector, firstFrame):
+    """
+    Pre-process and apply blob detection to a frame of video to find the
+    mid-point x-coordinate of the pendulum bob.
+    """
+
     # Pre-process image ready for blob detection:
     grayscaled = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(grayscaled, (5, 5), 0)
@@ -97,6 +110,11 @@ def findPendulumBobMidpoint(frame, detector, firstFrame):
 
 
 def computePendulumPath():
+    """
+    Process an input video to compute the path of oscillation of the
+    pendulum bob.
+    """
+
     minLeft = VIDEO_WIDTH
     maxRight = 0
     path = []
@@ -142,6 +160,22 @@ def computePendulumPath():
 # C A M E R A  P A R A M E T E R  C A L C U L A T I O N
 
 def getDepthError(depth):
+    """
+    Return the absolute error in a depth value from a TrueDepth sensor, which
+    varies depending on the depth value. These are OBSERVED values from my
+    experimentation in phase 2 data collection.
+
+    Parameters
+    ----------
+    depth : number
+        The depth value reported by the TrueDepth sensor, in cm
+
+    Returns
+    -------
+    error : float
+        Error n, in the format n +/- cm
+    """
+
     if depth <= 40:
         return 0.15
     elif depth <= 50:
@@ -193,6 +227,11 @@ def calcCropSensorWidth(sensorWidth, nativeAspectRatio, mediaAspectRatio):
 
 
 def calcSensorSize(focalLength, focalLength35mmEquiv, sensorAspectRatio):
+    """
+    Calculate the height and width of a camera sensor from its focal length,
+    35mm equivalent focal length and aspect ratio.
+    """
+
     cropFactor = focalLength35mmEquiv / focalLength
     # n.b. 43.27mm is the diagonal size of a full-frame 35mm sensor:
     sensorDiagonalLength = 43.27 / cropFactor
