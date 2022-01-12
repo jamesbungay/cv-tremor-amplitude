@@ -11,15 +11,14 @@ CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
 CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
-VIDEO_FILEPATH = 'data/pendulum_50_4.mov'
+VIDEO_FILEPATH = 'data/pendulum_90_20.mov'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 
 START_FRAME = 600  # Frame of video to start analysis at
 END_FRAME = 9999  # Frame of video to end analysis at
 
-MEASURED_OBJECT_DEPTH = 50  # cm, value from TrueDepth sensor
-MEASURED_OBJECT_DEPTH_ERR = 0  # +/- cm, error of value from TrueDepth sensor
+MEASURED_OBJECT_DEPTH = 90  # cm, value from TrueDepth sensor
 
 # The following are used in the plot title only:
 REAL_OBJECT_DEPTH = VIDEO_FILEPATH.split('_')[1]  # cm
@@ -42,9 +41,10 @@ def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
 
     plt.xlabel('Time (seconds)')
     plt.ylabel('Pendulum Amplitude (cm)')
-    plt.title('Measured Pendulum Amplitude Over Time with a\n' +
-              '%scm Initial Amplitude at a Depth of %scm'
-              % (REAL_AMPLITUDE, REAL_OBJECT_DEPTH))
+    plt.title('Measured Pendulum Amplitude Over Time with a %scm\n'
+              % REAL_AMPLITUDE +
+              'Initial Displacement, Recorded at a Depth of %scm'
+              % REAL_OBJECT_DEPTH)
 
     plt.show()
 
@@ -57,7 +57,6 @@ def setUpBlobDetector():
 
     params.minThreshold = 0
     params.maxThreshold = 255
-    # params.thresholdStep = 10
 
     params.filterByArea = True
     params.minArea = 1500
@@ -73,7 +72,6 @@ def setUpBlobDetector():
 
 
 def findPendulumBobMidpoint(frame, detector, firstFrame):
-
     # Pre-process image ready for blob detection:
     grayscaled = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(grayscaled, (5, 5), 0)
@@ -87,8 +85,8 @@ def findPendulumBobMidpoint(frame, detector, firstFrame):
         cv2.imwrite('data/firstFrame.jpg', imgKP)
         plt.imshow(cv2.cvtColor(imgKP, cv2.COLOR_BGR2RGB))
         plt.show()
-        input("Check first frame, and press enter to continue...")
-        print("Continuing...")
+        input('Check first frame, and press enter to continue...')
+        print('Continuing...')
 
     if len(keypoints) != 1:
         return -1
@@ -105,7 +103,10 @@ def computePendulumPath():
     pathFrameNumbers = []
     failedFrames = 0
 
-    print("Computing pendulum path for %s ..." % VIDEO_FILEPATH)
+    minLeftFrame = None
+    maxRightFrame = None
+
+    print('Computing pendulum path for %s ...' % VIDEO_FILEPATH)
 
     capture = cv2.VideoCapture(VIDEO_FILEPATH)
     frameN = 0
@@ -124,10 +125,14 @@ def computePendulumPath():
                     pathFrameNumbers.append(frameN)
                     if mp < minLeft:
                         minLeft = mp
+                        minLeftFrame = frame
                     if mp > maxRight:
                         maxRight = mp
+                        maxRightFrame = frame
         else:
             break
+    cv2.imwrite('data/leftMostFrame.jpg', minLeftFrame)
+    cv2.imwrite('data/rightMostFrame.jpg', maxRightFrame)
     capture.release()
 
     return path, pathFrameNumbers, minLeft, maxRight, failedFrames
@@ -135,6 +140,23 @@ def computePendulumPath():
 
 # -----------------------------------------------------------------------------
 # C A M E R A  P A R A M E T E R  C A L C U L A T I O N
+
+def getDepthError(depth):
+    if depth <= 40:
+        return 0.15
+    elif depth <= 50:
+        return 0.1
+    elif depth <= 60:
+        return 0.2
+    elif depth <= 70:
+        return 0.3
+    elif depth <= 80:
+        return 0.5
+    elif depth <= 90:
+        return 0.6
+    else:
+        return 0.5
+
 
 def calcPixelSize(imageResolution, sensorWidth, lensFocalLength, depth):
     """
@@ -150,13 +172,13 @@ def calcPixelSize(imageResolution, sensorWidth, lensFocalLength, depth):
     Returns
     -------
     pixelSize : Size of a pixel at the given depth, in cm.
+    pixelSizeErr : The error bounds of pixelSize, in +/- cm.
     """
 
-    # TODO: adjust for error. See phone photos 3/12. take depth error as input
-    # and output a tuple, of width and error.
-
     viewWidth = depth * sensorWidth / lensFocalLength
-    return viewWidth / imageResolution
+    viewWidthErr = (((getDepthError(depth) + depth) * sensorWidth /
+                    lensFocalLength) - viewWidth)
+    return viewWidth / imageResolution, viewWidthErr / imageResolution
 
 
 def calcCropSensorWidth(sensorWidth, nativeAspectRatio, mediaAspectRatio):
@@ -192,8 +214,9 @@ def main():
     videoSensorWidth = calcCropSensorWidth(cameraSensorWidth,
                                            CAMERA_NATIVE_ASPECT,
                                            CAMERA_VIDEO_ASPECT)
-    pixelSize = calcPixelSize(VIDEO_WIDTH, videoSensorWidth,
-                              CAMERA_FOCAL_LENGTH, MEASURED_OBJECT_DEPTH)
+    pixelSize, pixelSizeError = calcPixelSize(VIDEO_WIDTH, videoSensorWidth,
+                                              CAMERA_FOCAL_LENGTH,
+                                              MEASURED_OBJECT_DEPTH)
 
     plotPath(pathTime, path, minLeft, maxRight, pixelSize)
 
@@ -203,15 +226,23 @@ def main():
     amplitude = amplitudePixelDistance * pixelSize
 
     # There are two measurable sources of error:
-    #   1. From the depth measurement from the TrueDepth sensor
-    #   2. From each pixel representing discrete areas of continuous space
-    depthError = 0.0  # TODO implement
-    pixelSizeError = (0.5 * pixelSize) * 2  # Bad code, to emphasise meaning
-    amplitudeError = depthError + pixelSizeError
+    #   1. From the depth measurement from the TrueDepth sensor, which
+    #      translates into error in the value of pixelSize.
+    #   2. From each pixel representing discrete areas of continuous space,
+    #      i.e. the pendulum's midpoint may not be at the very centre of a
+    #      pixel, but somewhere between either side.
+    amplitudeError = amplitudePixelDistance * pixelSizeError
+    amplitudeError += (0.5 * pixelSize) * 2  # Bad code, to emphasise meaning
 
-    print("Pendulum amplitude (peak-to-trough) = %.1f +/- %.2f cm"
+    print('------------------------------------------------------------------')
+    print('Pendulum amplitude (peak-to-trough) = %.1f +/- %.2f cm'
           % (amplitude, amplitudeError))
-    print("Frames where pendulum bob detection failed: %d" % failedFrames)
+    print('------------------------------------------------------------------')
+    print('N.B. The above error bounds do not account for human error from ' +
+          'releasing the pendulum at a different displacement to that which ' +
+          'was intended. Consult the saved left-most and right-most frames ' +
+          'in the data folder to analyse this human error.')
+    print('Frames where pendulum bob detection failed: %d' % failedFrames)
 
 
 main()
