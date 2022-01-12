@@ -11,7 +11,7 @@ CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
 CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
-VIDEO_FILEPATH = 'data/pendulum_90_20.mov'
+VIDEO_FILEPATH = 'data/phase2/pendulum_90_20.mov'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 
@@ -79,9 +79,9 @@ def findPendulumBobMidpoint(frame, detector, firstFrame):
 
     keypoints = detector.detect(thresholded)
 
+    imgKP = cv2.drawKeypoints(frame, keypoints, np.array([]), (0, 0, 255),
+                              cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     if firstFrame:
-        imgKP = cv2.drawKeypoints(frame, keypoints, np.array([]), (0, 0, 255),
-                                  cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         cv2.imwrite('data/firstFrame.jpg', imgKP)
         plt.imshow(cv2.cvtColor(imgKP, cv2.COLOR_BGR2RGB))
         plt.show()
@@ -89,11 +89,11 @@ def findPendulumBobMidpoint(frame, detector, firstFrame):
         print('Continuing...')
 
     if len(keypoints) != 1:
-        return -1
+        return -1, None
 
     # Return the midpoint of the keypoint:
     for kp in keypoints:
-        return round(kp.pt[0])
+        return round(kp.pt[0]), imgKP
 
 
 def computePendulumPath():
@@ -116,8 +116,8 @@ def computePendulumPath():
         if success:
             frameN += 1
             if START_FRAME <= frameN <= END_FRAME:
-                mp = findPendulumBobMidpoint(frame, detector,
-                                             frameN == START_FRAME)
+                mp, frameKP = findPendulumBobMidpoint(frame, detector,
+                                                      frameN == START_FRAME)
                 if mp == -1:
                     failedFrames += 1
                 else:
@@ -125,10 +125,10 @@ def computePendulumPath():
                     pathFrameNumbers.append(frameN)
                     if mp < minLeft:
                         minLeft = mp
-                        minLeftFrame = frame
+                        minLeftFrame = frameKP
                     if mp > maxRight:
                         maxRight = mp
-                        maxRightFrame = frame
+                        maxRightFrame = frameKP
         else:
             break
     cv2.imwrite('data/leftMostFrame.jpg', minLeftFrame)
