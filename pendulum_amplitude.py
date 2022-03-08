@@ -11,14 +11,14 @@ CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
 CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
-VIDEO_FILEPATH = 'data/phase2/pendulum_90_20.mov'
+VIDEO_FILEPATH = 'data/phase2/pendulum_40_8.mov'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 
-START_FRAME = 600  # Frame of video to start analysis at
+START_FRAME = 660  # Frame of video to start analysis at
 END_FRAME = 9999  # Frame of video to end analysis at
 
-MEASURED_OBJECT_DEPTH = 90  # cm, value from TrueDepth sensor
+MEASURED_OBJECT_DEPTH = int(VIDEO_FILEPATH.split('_')[1])  # cm, value from TrueDepth sensor
 
 # The following are used in the plot title only:
 REAL_OBJECT_DEPTH = VIDEO_FILEPATH.split('_')[1]  # cm
@@ -88,7 +88,7 @@ def findPendulumBobMidpoint(frame, detector, firstFrame):
     # Pre-process image ready for blob detection:
     grayscaled = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(grayscaled, (5, 5), 0)
-    (__, thresholded) = cv2.threshold(blurred, 50, 255, cv2.THRESH_BINARY)
+    (__, thresholded) = cv2.threshold(blurred, 75, 255, cv2.THRESH_BINARY)
 
     keypoints = detector.detect(thresholded)
 
@@ -176,20 +176,20 @@ def getDepthError(depth):
         Error n, in the format n +/- cm
     """
 
-    if depth <= 40:
-        return 0.15
-    elif depth <= 50:
-        return 0.1
-    elif depth <= 60:
-        return 0.2
-    elif depth <= 70:
-        return 0.3
-    elif depth <= 80:
-        return 0.5
-    elif depth <= 90:
-        return 0.6
+    if depth <= 45:
+        return 0.115470054
+    elif 45 < depth <= 55:
+        return 0.081649658
+    elif 55 < depth <= 65:
+        return 0.141421356
+    elif 65 < depth <= 75:
+        return 0.203442594
+    elif 75 < depth <= 85:
+        return 0.324893145
+    elif 85 < depth <= 95:
+        return 0.37155828
     else:
-        return 0.5
+        return 0.37859389
 
 
 def calcPixelSize(imageResolution, sensorWidth, lensFocalLength, depth):
