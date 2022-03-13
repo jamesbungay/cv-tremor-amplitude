@@ -23,7 +23,7 @@ CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
 # Video file:
 
-VIDEO_FILEPATH = 'data/phase3/resting_o_50_5.MOV'
+VIDEO_FILEPATH = 'data/phase3/resting_o_100_0.MOV'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 
@@ -67,15 +67,14 @@ def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
 # -----------------------------------------------------------------------------
 # V I D E O  P R O C E S S I N G
 
-
 def computeTremorPath():
     """
     Process an input video to compute the path of the movement of a subject
     hand. This path is used to calculate tremor amplitude:
     """
 
-    minLeft = VIDEO_WIDTH
-    maxRight = 0
+    minLeft = [VIDEO_WIDTH] * 3
+    maxRight = [0] * 3
     path = []
     pathFrameNumbers = []
     failedFrames = 0
@@ -83,11 +82,11 @@ def computeTremorPath():
     minLeftFrame = None
     maxRightFrame = None
 
-    print('Computing tremor amplitude for %s ...' % VIDEO_FILEPATH)
+    print('------------------------------------------------------------------')
+    print('Computing tremor amplitude for %s...' % VIDEO_FILEPATH)
+    print('------------------------------------------------------------------')
 
-    capture = cv2.VideoCapture(VIDEO_FILEPATH)
-    frameN = 0
-
+    # Configure mediapipe hand detector:
     detector = mp_hands.Hands(
         static_image_mode=False,  # Treat images as video sequence, to track hands between images
         max_num_hands=1,  # Expect maximum of 1 hand in frame
@@ -96,26 +95,40 @@ def computeTremorPath():
         model_complexity=1  # Model accuracy, 1 == more accurate but slower
     )
 
+    # TODO: allow chosen landmarks to switch between pip, tip and dip.
+    # Finger landmarks to use for tremor tracking:
+    chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_PIP,
+                       mp_hands.HandLandmark.MIDDLE_FINGER_PIP,
+                       mp_hands.HandLandmark.INDEX_FINGER_PIP]
+
+    capture = cv2.VideoCapture(VIDEO_FILEPATH)
+    frameN = 0
+
     while (True):
         readSuccess, frame = capture.read()
 
         # i.e. if a frame was read from the video:
         if readSuccess:
             frameN += 1
+
+            # Only process frame if within chosen time range:
             if START_FRAME <= frameN <= END_FRAME:
+
+                # Apply hand detection:
                 frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 detectionResults = detector.process(frameRGB)
 
+                # Skip processing of frame if hand was not detected:
                 if not detectionResults.multi_hand_landmarks:
                     failedFrames += 1
                     continue
-
-                frameWithLandmarks = frame.copy()
 
                 # Get landmarks for (first) detected hand in image (note only
                 # one hand can be detected but it still must be selected):
                 landmarks = detectionResults.multi_hand_landmarks[0]
 
+                # Draw hand landmarks onto frame:
+                frameWithLandmarks = frame.copy()
                 mp_drawing.draw_landmarks(
                     frameWithLandmarks,
                     landmarks,
@@ -126,25 +139,40 @@ def computeTremorPath():
 
                 # cv2.imwrite('tempImg.jpg', frameWithLandmarks)
 
-                # Landmark coordinates are normalised to be between 0 and 1, so
-                # must be multiplied by video width:
-                middleFingerX = landmarks.landmark[
-                    mp_hands.HandLandmark.MIDDLE_FINGER_PIP].x * VIDEO_WIDTH
-                middleFingerX = round(middleFingerX)
-                print('Frame ' + str(frameN) + ' / ' + str(END_FRAME) + ': '
-                      + str(middleFingerX), end='\r')
+                # Array for storing x coordinates of finger pip joints:
+                fingerLandmarkX = [None] * 3
 
-                path.append(middleFingerX)
+                # Get x position (in terms of pixels) of the finger landmarks
+                # which were chosen above:
+                # (n.b. landmark coordinates are normalised to be between 0
+                #  and 1, so must be multiplied by video width)
+                for i in range(0, 3):
+                    fingerLandmarkX[i] = round(landmarks.landmark[
+                        chosenLandmarks[i]].x * VIDEO_WIDTH)
+
+                    if fingerLandmarkX[i] < minLeft[i]:
+                        minLeft[i] = fingerLandmarkX[i]
+                        if i == 1:
+                            minLeftFrame = frameWithLandmarks
+                    if fingerLandmarkX[i] > maxRight[i]:
+                        maxRight[i] = fingerLandmarkX[i]
+                        if i == 1:
+                            maxRightFrame = frameWithLandmarks
+
+                # TODO: record path for all 3 fingers.
+                path.append(fingerLandmarkX[1])
                 pathFrameNumbers.append(frameN)
-                if middleFingerX < minLeft:
-                    minLeft = middleFingerX
-                    minLeftFrame = frameWithLandmarks
-                if middleFingerX > maxRight:
-                    maxRight = middleFingerX
-                    maxRightFrame = frameWithLandmarks
 
-        # Will catch video read errors, including reaching end of the video:
+                print('Frame ' + str(frameN) + '/' + str(END_FRAME)
+                      + ' | landmark x positions: '
+                      + str(minLeft[0]) + ' <= ' + str(fingerLandmarkX[0]) + ' <= ' + str(maxRight[0]) + ', '
+                      + str(minLeft[1]) + ' <= ' + str(fingerLandmarkX[1]) + ' <= ' + str(maxRight[1]) + ', '
+                      + str(minLeft[2]) + ' <= ' + str(fingerLandmarkX[2]) + ' <= ' + str(maxRight[2]),
+                      end='\r')
+
+        # Catch video read errors, including reaching end of the video:
         else:
+            print('\n', end='')
             break
 
     # Left and right most frames can be manually viewed to check for erroneous
@@ -154,7 +182,7 @@ def computeTremorPath():
 
     capture.release()
 
-    return path, pathFrameNumbers, minLeft, maxRight, failedFrames
+    return path, pathFrameNumbers, minLeft[1], maxRight[1], failedFrames
 
 
 # -----------------------------------------------------------------------------
@@ -245,16 +273,38 @@ def calcSensorSize(focalLength, focalLength35mmEquiv, sensorAspectRatio):
 # -----------------------------------------------------------------------------
 # M A I N  F U N C T I O N
 
+
+def printConfig():
+    print('------------------------------------------------------------------')
+    print('T R E M O R  A M P L I T U D E  M E A S U R E M E N T')
+    print('------------------------------------------------------------------')
+    print('constants and etc...')
+    # TODO: print run mode (resting or postural), camera specs from constants, etc. before running.
+    return 0
+
+
 def main():
+    if printConfig() == -1:
+        exit
+
+    # Compute the path of movement of the hand in the input video:
     path, pathTime, minLeft, maxRight, failedFrames = computeTremorPath()
 
+    # Calculate camera sensor width from more readily-available camera
+    # specifications:
     cameraSensorWidth, __ = calcSensorSize(CAMERA_FOCAL_LENGTH,
-                                            CAMERA_FOCAL_LENGTH_STD,
-                                            CAMERA_NATIVE_ASPECT)
+                                           CAMERA_FOCAL_LENGTH_STD,
+                                           CAMERA_NATIVE_ASPECT)
+
+    # Calculate the width of the sensor which is utilised for video recording
+    # (as video is generally a different aspect ratio to sensor aspect ratio):
     videoSensorWidth = calcCropSensorWidth(cameraSensorWidth,
-                                            CAMERA_NATIVE_ASPECT,
-                                            CAMERA_VIDEO_ASPECT)
-    pixelSize, pixelSizeError = calcPixelSize(VIDEO_WIDTH, videoSensorWidth,
+                                           CAMERA_NATIVE_ASPECT,
+                                           CAMERA_VIDEO_ASPECT)
+
+    # Thus, calculate the size of each pixel in the video at a given depth:
+    pixelSize, pixelSizeError = calcPixelSize(VIDEO_WIDTH,
+                                              videoSensorWidth,
                                               CAMERA_FOCAL_LENGTH,
                                               HAND_DEPTH)
 
@@ -277,6 +327,7 @@ def main():
     print('------------------------------------------------------------------')
     print('Tremor amplitude (peak-to-trough) = %.1f +/- %.2f cm'
           % (amplitude, amplitudeError))
+    # TODO: print error breakdown (pixel error, depth error, hand detection error).
     print('------------------------------------------------------------------')
     print('N.B. The above error bounds do not account for error from hand ' +
           'detection. Consult the saved left-most and right-most frames ' +
