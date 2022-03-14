@@ -28,7 +28,7 @@ CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
 # Video file:
-VIDEO_FILEPATH = 'data/phase3/resting_j_50_10.MOV'
+VIDEO_FILEPATH = 'data/phase3/resting_o_100_0.MOV'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 START_FRAME = 1  # Frame of video to start tremor measurement at
@@ -51,7 +51,7 @@ chosenLandmarksText = None
 # -----------------------------------------------------------------------------
 # P A T H   P L O T T I N G
 
-def plotPath(pathTime, path, pixelSize, amplitudeForTitle):
+def plotPath(pathTime, path, pixelSize, amplitude):
     """
     Plot the path of oscillation of hand tremor over time.
     """
@@ -71,12 +71,14 @@ def plotPath(pathTime, path, pixelSize, amplitudeForTitle):
 
     plt.axhline(y=max(path), color='dimgrey', linestyle='dotted')
     plt.axhline(y=min(path), color='dimgrey', linestyle='dotted')
+    plt.axhline(y=amplitude/2, color='dimgrey', linestyle='dashed')
+    plt.axhline(y=-(amplitude/2), color='dimgrey', linestyle='dashed')
 
     plt.xlabel('Time (seconds)')
     plt.ylabel('Tremor Amplitude (cm)')
     plt.title('Waveform of a Tremor with an Amplitude of\n' +
-              '%.1fcm, Recorded at a Depth of %scm'
-              % (amplitudeForTitle, HAND_DEPTH))
+              '%.2fcm, Recorded at a Depth of %scm'
+              % (amplitude, HAND_DEPTH))
 
     plt.show()
 
@@ -496,7 +498,7 @@ def main():
 
     # Print results to console:
     print('-' * 80)
-    print('Tremor amplitude = %.1f +/- %.2f cm' % (finalAmplitude, totalError))
+    print('Tremor amplitude = %.2f +/- %.2f cm' % (finalAmplitude, totalError))
     print('-' * 80)
     print('Error breakdown:')
     print('  1. Error due to depth sensor inaccuracy  : +/- %.2f cm'
