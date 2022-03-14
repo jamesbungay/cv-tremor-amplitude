@@ -28,7 +28,7 @@ CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
 # Video file:
-VIDEO_FILEPATH = 'data/phase3/resting_j_75_10.MOV'
+VIDEO_FILEPATH = 'data/phase3/resting_j_50_10.MOV'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 START_FRAME = 1  # Frame of video to start tremor measurement at
@@ -36,6 +36,9 @@ END_FRAME = 15 * VIDEO_FRAMERATE  # Frame of video to end tremor measurement at
 
 # Depth measurement value from TrueDepth sensor, in cm:
 HAND_DEPTH = int(VIDEO_FILEPATH.split('_')[2])
+
+# Display hand tracking in GUI, or use console only? (GUI -> much slower):
+GUI_HAND_TRACKING = False
 
 # Tremor type to measure:
 tremorType = None
@@ -256,8 +259,11 @@ def computeTremorPath():
                     mp_drawing_styles.get_default_hand_connections_style()
                 )
 
-                # TODO imshow each frame
-                # cv2.imwrite('tempImg.jpg', frameWithLandmarks)
+                # Show hand landmarks in a GUI window:
+                if GUI_HAND_TRACKING:
+                    cv2.namedWindow('Hand Tracking')
+                    cv2.imshow('Hand Tracking', frameWithLandmarks)
+                    cv2.waitKey(1)
 
                 # Array for storing x coordinates of finger pip joints:
                 fingerLandmarkX = [None] * 3
@@ -297,6 +303,7 @@ def computeTremorPath():
         # Catch video read errors, including reaching end of the video:
         else:
             print('\n', end='')
+            if GUI_HAND_TRACKING: cv2.destroyAllWindows()
             break
 
     # Left and right most frames can be manually viewed to check for erroneous
