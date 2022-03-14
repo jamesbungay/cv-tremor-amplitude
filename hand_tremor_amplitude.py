@@ -22,30 +22,29 @@ class Tremor(Enum):
 # C O N S T A N T S  A N D  G L O B A L S
 
 # Camera parameters:
-
 CAMERA_FOCAL_LENGTH = 2.87  # mm, focal length of camera lens
 CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
 CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
 # Video file:
-
-VIDEO_FILEPATH = 'data/phase3/resting_o_100_0.MOV'
+VIDEO_FILEPATH = 'data/phase3/resting_o_100_10.MOV'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 START_FRAME = 1  # Frame of video to start tremor measurement at
 END_FRAME = 15 * VIDEO_FRAMERATE  # Frame of video to end tremor measurement at
 
+# Depth measurement value from TrueDepth sensor, in cm:
+HAND_DEPTH = int(VIDEO_FILEPATH.split('_')[2])
+
 # Tremor type to measure:
+tremorType = None
 
-tremorType = Tremor.RESTING
-
-# Depth measurement:
-
-HAND_DEPTH = int(VIDEO_FILEPATH.split('_')[2])  # cm, value from TrueDepth sensor
+# Hand landmarks to track for tremor measurement:
+chosenLandmarks = None
+chosenLandmarksText = None
 
 # Values for plot title:
-
 TARGET_AMPLITUDE = VIDEO_FILEPATH.split('_')[3].split('.')[0]  # cm
 
 
@@ -77,7 +76,44 @@ def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
 
 
 # -----------------------------------------------------------------------------
-# V I D E O  P R O C E S S I N G
+# H A N D  T R A C K I N G  /  V I D E O  P R O C E S S I N G
+
+def selectLandmarks():
+    """
+    Set finger landmarks to track, to use in calculating tremor amplitude.
+    """
+
+    global chosenLandmarks, chosenLandmarksText
+
+    if tremorType == Tremor.RESTING:
+        print('Track finger MCP joint (first knuckle), PIP joint, DIP joint or'
+              + ' finger tip (nail)?')
+        joint = input('Type in MCP, PIP, DIP, or TIP: ').upper()
+        if joint == 'MCP':
+            chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_MCP,
+                               mp_hands.HandLandmark.MIDDLE_FINGER_MCP,
+                               mp_hands.HandLandmark.INDEX_FINGER_MCP]
+            chosenLandmarksText = 'Index, middle and ring finger MCP joints'
+        elif joint == 'PIP':
+            chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_PIP,
+                               mp_hands.HandLandmark.MIDDLE_FINGER_PIP,
+                               mp_hands.HandLandmark.INDEX_FINGER_PIP]
+            chosenLandmarksText = 'Index, middle and ring finger PIP joints'
+        elif joint == 'DIP':
+            chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_DIP,
+                               mp_hands.HandLandmark.MIDDLE_FINGER_DIP,
+                               mp_hands.HandLandmark.INDEX_FINGER_DIP]
+            chosenLandmarksText = 'Index, middle and ring finger DIP joints'
+        else:
+            chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_TIP,
+                               mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
+                               mp_hands.HandLandmark.INDEX_FINGER_TIP]
+            chosenLandmarksText = 'Index, middle and ring finger tips'
+
+    else:
+        chosenLandmarks = []
+        chosenLandmarksText = 'NOT YET IMPLEMENTED'
+
 
 def computeTremorPath():
     """
@@ -100,18 +136,12 @@ def computeTremorPath():
 
     # Configure mediapipe hand detector:
     detector = mp_hands.Hands(
-        static_image_mode=False,  # Treat images as video sequence, to track hands between images
+        static_image_mode=False,  # False -> treat images as video sequence, to track hands between images. Allows faster and more accurate tracking.
         max_num_hands=1,  # Expect maximum of 1 hand in frame
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5,
         model_complexity=1  # Model accuracy, 1 == more accurate but slower
     )
-
-    # TODO: allow chosen landmarks to switch between pip, tip and dip.
-    # Finger landmarks to use for tremor tracking:
-    chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_PIP,
-                       mp_hands.HandLandmark.MIDDLE_FINGER_PIP,
-                       mp_hands.HandLandmark.INDEX_FINGER_PIP]
 
     capture = cv2.VideoCapture(VIDEO_FILEPATH)
     frameN = 0
@@ -286,7 +316,9 @@ def calcSensorSize(focalLength, focalLength35mmEquiv, sensorAspectRatio):
 # M A I N
 
 def printConfig():
+    print('------------------------------------------------------------------')
     print('Tremor type to measure          : ' + tremorType.name)
+    print('Hand landmarks to track         : ' + chosenLandmarksText)
     print('Video file path                 : ' + VIDEO_FILEPATH)
     print('Video resolution and fps        : ' + 'nnnnxnnnn, nnfps')
     print('Camera focal length             : ' + str(CAMERA_FOCAL_LENGTH) + 'mm')
@@ -309,9 +341,10 @@ def main():
     print('T R E M O R  A M P L I T U D E  M E A S U R E M E N T')
     print('------------------------------------------------------------------')
 
-    # selectLandmarks()
-
+    global tremorType
     tremorType = Tremor.RESTING
+
+    selectLandmarks()
 
     printConfig()
 
