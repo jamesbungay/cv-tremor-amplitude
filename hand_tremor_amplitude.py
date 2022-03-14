@@ -28,7 +28,7 @@ CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
 # Video file:
-VIDEO_FILEPATH = 'data/phase3/resting_o_100_10.MOV'
+VIDEO_FILEPATH = 'data/phase3/resting_j_50_0.MOV'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 START_FRAME = 1  # Frame of video to start tremor measurement at
@@ -78,6 +78,29 @@ def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
 # -----------------------------------------------------------------------------
 # T R E M O R   A M P L I T U D E   C A L C U L A T I O N
 
+def calcErrorFromHandTracking(amplitude):
+    """
+    Calculate the error due to inaccuracy in hand tracking by calculating the
+    RMSE of measured tremor amplitude between the three chosen hand landmarks.
+
+    Note that this relies on the subject's fingers staying the same distance
+    apart from each other throughout the video. Works best with MCP (first
+    knuckle) landmarks, as they cannot be moved apart like fingers can.
+
+    Returns the error, in +/- cm.
+    """
+
+    avg = sum(amplitude) / 3
+
+    rmse = math.sqrt((((amplitude[0] - avg) ** 2) + ((amplitude[1] - avg) ** 2)
+                      + ((amplitude[2] - avg) ** 2)) / 3)
+
+    # Divide by two to get +/- value, rather than total error value:
+    return rmse / 2
+
+
+# TODO: fancy waveform analysis for better amplitude value. apply to each of
+# the three waveforms from the different landmarks.
 
 # -----------------------------------------------------------------------------
 # H A N D   T R A C K I N G   &   V I D E O   P R O C E S S I N G
@@ -91,7 +114,7 @@ def selectLandmarks():
 
     if tremorType == Tremor.RESTING:
         print('Track finger MCP joint (first knuckle), PIP joint, DIP joint or'
-              + ' finger tip (nail)?')
+              + ' finger tip?')
         joint = input('Type in MCP, PIP, DIP, or TIP: ').upper()
         if joint == 'MCP':
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_MCP,
@@ -134,9 +157,8 @@ def computeTremorPath():
     minLeftFrame = None
     maxRightFrame = None
 
-    print('------------------------------------------------------------------')
+    print('-' * 80)
     print('Computing tremor amplitude for %s...' % VIDEO_FILEPATH)
-    print('------------------------------------------------------------------')
 
     # Configure mediapipe hand detector:
     detector = mp_hands.Hands(
@@ -212,9 +234,12 @@ def computeTremorPath():
 
                 print('Frame ' + str(frameN) + '/' + str(END_FRAME)
                       + ' | landmark x positions: '
-                      + str(minLeft[0]) + ' <= ' + str(fingerLandmarkX[0]) + ' <= ' + str(maxRight[0]) + ', '
-                      + str(minLeft[1]) + ' <= ' + str(fingerLandmarkX[1]) + ' <= ' + str(maxRight[1]) + ', '
-                      + str(minLeft[2]) + ' <= ' + str(fingerLandmarkX[2]) + ' <= ' + str(maxRight[2]),
+                      + str(minLeft[0]) + ' <= ' + str(fingerLandmarkX[0])
+                      + ' <= ' + str(maxRight[0]) + ', '
+                      + str(minLeft[1]) + ' <= ' + str(fingerLandmarkX[1])
+                      + ' <= ' + str(maxRight[1]) + ', '
+                      + str(minLeft[2]) + ' <= ' + str(fingerLandmarkX[2])
+                      + ' <= ' + str(maxRight[2]),
                       end='\r')
 
         # Catch video read errors, including reaching end of the video:
@@ -321,33 +346,35 @@ def calcSensorSize(focalLength, focalLength35mmEquiv, sensorAspectRatio):
 # M A I N
 
 def printConfig():
-    print('------------------------------------------------------------------')
+    print('-' * 80)
     print('Tremor type to measure          : ' + tremorType.name)
     print('Hand landmarks to track         : ' + chosenLandmarksText)
     print('Video file path                 : ' + VIDEO_FILEPATH)
     print('Video resolution and fps        : ' + '??')
-    print('Camera focal length             : ' + str(CAMERA_FOCAL_LENGTH) + 'mm')
-    print('Camera 35mm equiv. focal length : ' + str(CAMERA_FOCAL_LENGTH_STD) + 'mm')
+    print('Camera focal length             : ' + str(CAMERA_FOCAL_LENGTH)
+          + 'mm')
+    print('Camera 35mm equiv. focal length : ' + str(CAMERA_FOCAL_LENGTH_STD)
+          + 'mm')
     print('Camera aspect ratio             : ' + str(CAMERA_NATIVE_ASPECT[0])
           + ':' + str(CAMERA_NATIVE_ASPECT[1]))
     print('Video aspect ratio              : ' + str(CAMERA_VIDEO_ASPECT[0])
           + ':' + str(CAMERA_VIDEO_ASPECT[1]))
     print('Hand depth measurement          : ' + str(HAND_DEPTH) + 'cm')
-    
-    if input('Check the above values; ok to continue? (y/n): ') == 'y':
+
+    if input('Check the above values; ok to continue? (y/n): ').lower() == 'y':
         return
     else:
         sys.exit()
 
 
 def main():
-    print('------------------------------------------------------------------')
+    print('-' * 80)
     print('T R E M O R   A M P L I T U D E   M E A S U R E M E N T')
-    print('------------------------------------------------------------------')
+    print('-' * 80)
 
     global tremorType
     tremorType = Tremor.RESTING
-    
+
     # Choose hand landmarks to track for tremor measurement:
     selectLandmarks()
 
@@ -379,30 +406,47 @@ def main():
     # Plot the path of the hand tremor over time:
     plotPath(pathTime, path[1], minLeft[1], maxRight[1], pixelSize)
 
+    # Calculate amplitude in cm:
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
-    amplitudePixelDistance = maxRight[1] - minLeft[1]
-    amplitude = amplitudePixelDistance * pixelSize
+    amplitudePixelDistance = [None] * 3
+    amplitude = [None] * 3
+    for i in range(0, 3):
+        amplitudePixelDistance[i] = maxRight[i] - minLeft[i]
+        amplitude[i] = amplitudePixelDistance[i] * pixelSize
 
-    # There are two measurable sources of error:
-    #   1. From the depth measurement from the TrueDepth sensor, which
-    #      translates into error in the value of pixelSize.
-    #   2. From each pixel representing discrete areas of continuous space,
-    #      i.e. the hand landmark may not be at the very centre of a
-    #      pixel, but somewhere between either side.
-    amplitudeError = amplitudePixelDistance * pixelSizeError
-    amplitudeError += (0.5 * pixelSize) * 2  # Bad code, to emphasise meaning
+    # Calculate error in the amplitute due to the error in depth measurement
+    # from the TrueDepth sensor, which translates into error in the value of
+    # pixelSize:
+    amplitudeError = amplitudePixelDistance[1] * pixelSizeError
 
-    print('------------------------------------------------------------------')
-    print('Tremor amplitude (peak-to-trough) = %.1f +/- %.2f cm'
-          % (amplitude, amplitudeError))
-    # TODO: print error breakdown (pixel error, depth error, hand detection error).
-    print('------------------------------------------------------------------')
-    print('N.B. The above error bounds do not account for error from hand ' +
-          'detection. Consult the saved left-most and right-most frames ' +
-          'in the data folder to analyse this error by checking the hand ' +
-          'landmark placement for discrepencies.')
+    # Calcluate error due to each pixel representing a discrete area of
+    # continuous space; i.e. occurs since a hand landmark may not be at the
+    # very centre of a pixel, but somewhere between either side:
+    pixelSizeError = (0.5 * pixelSize) * 2  # Bad code, to emphasise meaning
+
+    # Calculate error due to inaccuracy in hand tracking:
+    trackingError = calcErrorFromHandTracking(amplitude)
+
+    totalError = amplitudeError + pixelSizeError + trackingError
+
+    print('-' * 80)
+    print('Tremor amplitude = %.1f +/- %.2f cm' % (amplitude[1], totalError))
+    print('-' * 80)
+    print('Error breakdown:')
+    print('  1. Error due to depth sensor inaccuracy  : +/- %.2f cm'
+          % amplitudeError)
+    print('  2. Error due to pixel size discretion    : +/- %.2f cm'
+          % pixelSizeError)
+    print('  3. Error due to hand tracking inaccuracy : +/- %.2f cm'
+          % trackingError)
+    print('-' * 80)
+    print('n.b. Consult the saved left-most and right-most frames in the' +
+          ' data folder to\nascertain the amplitude measurement, by checking' +
+          'the hand landmark placement\nfor discrepencies.')
+    print('-' * 80)
     print('Frames where hand detection failed: %d' % failedFrames)
+    print('-' * 80)
 
 
 main()
