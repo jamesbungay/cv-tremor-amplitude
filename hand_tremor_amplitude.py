@@ -28,7 +28,7 @@ CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
 # Video file:
-VIDEO_FILEPATH = 'data/phase3/resting_j_50_0.MOV'
+VIDEO_FILEPATH = 'data/phase3/resting_j_75_10.MOV'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
 START_FRAME = 1  # Frame of video to start tremor measurement at
@@ -44,14 +44,11 @@ tremorType = None
 chosenLandmarks = None
 chosenLandmarksText = None
 
-# Values for plot title:
-TARGET_AMPLITUDE = VIDEO_FILEPATH.split('_')[3].split('.')[0]  # cm
-
 
 # -----------------------------------------------------------------------------
 # P A T H   P L O T T I N G
 
-def plotPath(pathTime, path, pixelSize):
+def plotPath(pathTime, path, pixelSize, amplitudeForTitle):
     """
     Plot the path of oscillation of hand tremor over time.
     """
@@ -69,11 +66,14 @@ def plotPath(pathTime, path, pixelSize):
 
     plt.plot(xPoints, yPoints)
 
+    plt.axhline(y=max(path), color='dimgrey', linestyle='dotted')
+    plt.axhline(y=min(path), color='dimgrey', linestyle='dotted')
+
     plt.xlabel('Time (seconds)')
     plt.ylabel('Tremor Amplitude (cm)')
-    plt.title('Measured Tremor with a Target Amplitude\n' +
-              'of %scm, Recorded at a Depth of %scm'
-              % (TARGET_AMPLITUDE, HAND_DEPTH))
+    plt.title('Waveform of a Tremor with an Amplitude of\n' +
+              '%.1fcm, Recorded at a Depth of %scm'
+              % (amplitudeForTitle, HAND_DEPTH))
 
     plt.show()
 
@@ -190,6 +190,7 @@ def selectLandmarks():
     else:
         chosenLandmarks = []
         chosenLandmarksText = 'NOT YET IMPLEMENTED'
+        # TODO implement above
 
 
 def computeTremorPath():
@@ -255,6 +256,7 @@ def computeTremorPath():
                     mp_drawing_styles.get_default_hand_connections_style()
                 )
 
+                # TODO imshow each frame
                 # cv2.imwrite('tempImg.jpg', frameWithLandmarks)
 
                 # Array for storing x coordinates of finger pip joints:
@@ -282,7 +284,7 @@ def computeTremorPath():
 
                 pathFrameNumbers.append(frameN)
 
-                print('Frame ' + str(frameN) + '/' + str(END_FRAME)
+                print('Processing frame ' + str(frameN) + '/' + str(END_FRAME)
                       + ' | landmark x positions: '
                       + str(minLeft[0]) + ' <= ' + str(fingerLandmarkX[0])
                       + ' <= ' + str(maxRight[0]) + ', '
@@ -400,7 +402,10 @@ def printConfig():
     print('Tremor type to measure          : ' + tremorType.name)
     print('Hand landmarks to track         : ' + chosenLandmarksText)
     print('Video file path                 : ' + VIDEO_FILEPATH)
-    print('Video resolution and fps        : ' + '??')
+    resFpsStr = (str(VIDEO_WIDTH) + 'x' + str(int(VIDEO_WIDTH /
+                 CAMERA_VIDEO_ASPECT[0] * CAMERA_VIDEO_ASPECT[1])) + ', '
+                 + str(VIDEO_FRAMERATE) + 'fps')
+    print('Video resolution and frame rate : ' + resFpsStr)
     print('Camera focal length             : ' + str(CAMERA_FOCAL_LENGTH)
           + 'mm')
     print('Camera 35mm equiv. focal length : ' + str(CAMERA_FOCAL_LENGTH_STD)
@@ -453,9 +458,6 @@ def main():
                                               CAMERA_FOCAL_LENGTH,
                                               HAND_DEPTH)
 
-    # Plot the path of the hand tremor over time:
-    plotPath(pathTime, path[1], pixelSize)
-
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
     amplitudePixelDistance = [None] * 3
@@ -485,6 +487,7 @@ def main():
 
     totalError = amplitudeError + pixelSizeError + trackingError
 
+    # Print results to console:
     print('-' * 80)
     print('Tremor amplitude = %.1f +/- %.2f cm' % (finalAmplitude, totalError))
     print('-' * 80)
@@ -502,6 +505,9 @@ def main():
     print('-' * 80)
     print('Frames where hand detection failed: %d' % failedFrames)
     print('-' * 80)
+
+    # Plot the path of the hand tremor over time:
+    plotPath(pathTime, path[1], pixelSize, finalAmplitude)
 
 
 main()
