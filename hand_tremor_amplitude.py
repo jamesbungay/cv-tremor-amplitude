@@ -80,6 +80,9 @@ def plotPath(pathTime, path, pixelSize, amplitude):
               '%.2fcm, Recorded at a Depth of %scm'
               % (amplitude, HAND_DEPTH))
 
+    if plt.gcf().canvas.manager is not None:
+        plt.gcf().canvas.manager.set_window_title('Tremor Waveform')
+
     plt.show()
 
 
@@ -305,7 +308,8 @@ def computeTremorPath():
         # Catch video read errors, including reaching end of the video:
         else:
             print('\n', end='')
-            if GUI_HAND_TRACKING: cv2.destroyAllWindows()
+            if GUI_HAND_TRACKING:
+                cv2.destroyAllWindows()
             break
 
     # Left and right most frames can be manually viewed to check for erroneous
