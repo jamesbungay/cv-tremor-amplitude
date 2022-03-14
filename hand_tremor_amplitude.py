@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from enum import Enum
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
@@ -11,8 +13,13 @@ mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 
 
+class Tremor(Enum):
+    RESTING = 1
+    POSTURAL = 2
+
+
 # -----------------------------------------------------------------------------
-# C O N S T A N T S
+# C O N S T A N T S  A N D  G L O B A L S
 
 # Camera parameters:
 
@@ -26,9 +33,14 @@ CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 VIDEO_FILEPATH = 'data/phase3/resting_o_100_0.MOV'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
-
 START_FRAME = 1  # Frame of video to start tremor measurement at
-END_FRAME = 900  # Frame of video to end tremor measurement at
+END_FRAME = 15 * VIDEO_FRAMERATE  # Frame of video to end tremor measurement at
+
+# Tremor type to measure:
+
+tremorType = Tremor.RESTING
+
+# Depth measurement:
 
 HAND_DEPTH = int(VIDEO_FILEPATH.split('_')[2])  # cm, value from TrueDepth sensor
 
@@ -271,21 +283,37 @@ def calcSensorSize(focalLength, focalLength35mmEquiv, sensorAspectRatio):
 
 
 # -----------------------------------------------------------------------------
-# M A I N  F U N C T I O N
-
+# M A I N
 
 def printConfig():
-    print('------------------------------------------------------------------')
-    print('T R E M O R  A M P L I T U D E  M E A S U R E M E N T')
-    print('------------------------------------------------------------------')
-    print('constants and etc...')
+    print('Tremor type to measure          : ' + tremorType.name)
+    print('Video file path                 : ' + VIDEO_FILEPATH)
+    print('Video resolution and fps        : ' + 'nnnnxnnnn, nnfps')
+    print('Camera focal length             : ' + str(CAMERA_FOCAL_LENGTH) + 'mm')
+    print('Camera 35mm equiv. focal length : ' + str(CAMERA_FOCAL_LENGTH_STD) + 'mm')
+    print('Camera aspect ratio             : ' + str(CAMERA_NATIVE_ASPECT[0])
+          + ':' + str(CAMERA_NATIVE_ASPECT[1]))
+    print('Video aspect ratio              : ' + str(CAMERA_VIDEO_ASPECT[0])
+          + ':' + str(CAMERA_VIDEO_ASPECT[1]))
+    print('Hand depth measurement          : ' + str(HAND_DEPTH) + 'cm')
+    
+    if input('Check the above values; ok to continue? (y/n): ') == 'y':
+        return
+    else:
+        sys.exit()
     # TODO: print run mode (resting or postural), camera specs from constants, etc. before running.
-    return 0
 
 
 def main():
-    if printConfig() == -1:
-        exit
+    print('------------------------------------------------------------------')
+    print('T R E M O R  A M P L I T U D E  M E A S U R E M E N T')
+    print('------------------------------------------------------------------')
+
+    # selectLandmarks()
+
+    tremorType = Tremor.RESTING
+
+    printConfig()
 
     # Compute the path of movement of the hand in the input video:
     path, pathTime, minLeft, maxRight, failedFrames = computeTremorPath()
