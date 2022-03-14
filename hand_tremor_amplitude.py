@@ -51,10 +51,13 @@ TARGET_AMPLITUDE = VIDEO_FILEPATH.split('_')[3].split('.')[0]  # cm
 # -----------------------------------------------------------------------------
 # P A T H   P L O T T I N G
 
-def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
+def plotPath(pathTime, path, pixelSize):
     """
     Plot the path of oscillation of hand tremor over time.
     """
+
+    minLeft = min(path)
+    maxRight = max(path)
 
     path = list(map(lambda x: (x - minLeft - ((maxRight - minLeft) / 2))
                     * pixelSize, path))
@@ -99,8 +102,55 @@ def calcErrorFromHandTracking(amplitude):
     return rmse / 2
 
 
-# TODO: fancy waveform analysis for better amplitude value. apply to each of
-# the three waveforms from the different landmarks.
+def calcPixelDistAmplitudeFromPath(path):
+    """
+    Calculate tremor amplitude (in terms of pixels) from a tremor path.
+
+    The path waveform is differentiated to find the peaks and troughs of the
+    path. The differences between neighbouring peaks and troughs are calculated
+    to obtain a collection of amplitude samples. The outliers of these are
+    filtered, then the maximum is returned.
+    """
+
+    # Differentiate tremor path to find an estimate of the gradient (it is
+    # only an estimate as the path is sampled, not continuous):
+    pathDerivative = []
+    for i in range(0, len(path) - 1):
+        # https://math.stackexchange.com/questions/304069/use-a-set-of-data-points-from-a-graph-to-find-a-derivative
+        gradientAtPoint = path[i+1] - path[i]
+        pathDerivative.append(gradientAtPoint)
+
+    # Find peaks and troughs of tremor path (they are at the point where
+    # gradient changes from positive to negative or vice versa):
+    peaksAndTroughs = []
+    positiveGrad = pathDerivative[0] >= 0
+    for i in range(1, len(pathDerivative)):
+        # If gradient has switched from positive to negative or v.v.:
+        if positiveGrad != (pathDerivative[i] >= 0):
+            positiveGrad = not positiveGrad
+            peaksAndTroughs.append(path[i])
+
+    # Calculate the differences between neighbouring peaks and troughs, i.e.
+    # the pixel distance of each 'oscillation' of tremor:
+    amplitudeSamples = []
+    for i in range(0, len(peaksAndTroughs) - 1):
+        diff = abs(peaksAndTroughs[i] - peaksAndTroughs[i+1])
+        amplitudeSamples.append(diff)
+
+    # Calculate standard deviation and median of amplitude samples:
+    stdDv = np.std(amplitudeSamples)
+    median = np.median(amplitudeSamples)
+
+    # Filter outliers of amplitude samples by +/- two standard deviations
+    # (only filter high outliers as I don't care about low values):
+    filteredAmplitudeSamples = filter(lambda ampl: ampl <= median
+                                      + (2 * stdDv), amplitudeSamples)
+
+    # Finally, amplitude = the maximum of the differences between tremor
+    # path peaks and troughs:
+    amplitude = max(filteredAmplitudeSamples)
+    return amplitude
+
 
 # -----------------------------------------------------------------------------
 # H A N D   T R A C K I N G   &   V I D E O   P R O C E S S I N G
@@ -254,7 +304,7 @@ def computeTremorPath():
 
     capture.release()
 
-    return path, pathFrameNumbers, minLeft, maxRight, failedFrames
+    return path, pathFrameNumbers, failedFrames
 
 
 # -----------------------------------------------------------------------------
@@ -382,7 +432,7 @@ def main():
     printConfig()
 
     # Compute the path of movement of the hand in the input video:
-    path, pathTime, minLeft, maxRight, failedFrames = computeTremorPath()
+    path, pathTime, failedFrames = computeTremorPath()
 
     # Calculate camera sensor width from more readily-available camera
     # specifications:
@@ -404,21 +454,26 @@ def main():
                                               HAND_DEPTH)
 
     # Plot the path of the hand tremor over time:
-    plotPath(pathTime, path[1], minLeft[1], maxRight[1], pixelSize)
+    plotPath(pathTime, path[1], pixelSize)
 
-    # Calculate amplitude in cm:
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
     amplitudePixelDistance = [None] * 3
     amplitude = [None] * 3
     for i in range(0, 3):
-        amplitudePixelDistance[i] = maxRight[i] - minLeft[i]
+        # Calculate amplitude in pixels:
+        amplitudePixelDistance[i] = calcPixelDistAmplitudeFromPath(path[i])
+        # Convert amplitude from pixels to cm:
         amplitude[i] = amplitudePixelDistance[i] * pixelSize
+
+    # Take the average of the tremor amplitudes from the three landmarks to
+    # obtain a final value for tremor amplitude:
+    finalAmplitude = sum(amplitude) / len(amplitude)
 
     # Calculate error in the amplitute due to the error in depth measurement
     # from the TrueDepth sensor, which translates into error in the value of
     # pixelSize:
-    amplitudeError = amplitudePixelDistance[1] * pixelSizeError
+    amplitudeError = finalAmplitude * pixelSizeError
 
     # Calcluate error due to each pixel representing a discrete area of
     # continuous space; i.e. occurs since a hand landmark may not be at the
@@ -431,7 +486,7 @@ def main():
     totalError = amplitudeError + pixelSizeError + trackingError
 
     print('-' * 80)
-    print('Tremor amplitude = %.1f +/- %.2f cm' % (amplitude[1], totalError))
+    print('Tremor amplitude = %.1f +/- %.2f cm' % (finalAmplitude, totalError))
     print('-' * 80)
     print('Error breakdown:')
     print('  1. Error due to depth sensor inaccuracy  : +/- %.2f cm'
@@ -443,7 +498,7 @@ def main():
     print('-' * 80)
     print('n.b. Consult the saved left-most and right-most frames in the' +
           ' data folder to\nascertain the amplitude measurement, by checking' +
-          'the hand landmark placement\nfor discrepencies.')
+          ' the hand landmark placement\nfor discrepencies.')
     print('-' * 80)
     print('Frames where hand detection failed: %d' % failedFrames)
     print('-' * 80)
