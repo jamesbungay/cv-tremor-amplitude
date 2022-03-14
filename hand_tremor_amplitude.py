@@ -19,7 +19,7 @@ class Tremor(Enum):
 
 
 # -----------------------------------------------------------------------------
-# C O N S T A N T S  A N D  G L O B A L S
+# C O N S T A N T S   A N D   G L O B A L S
 
 # Camera parameters:
 CAMERA_FOCAL_LENGTH = 2.87  # mm, focal length of camera lens
@@ -49,7 +49,7 @@ TARGET_AMPLITUDE = VIDEO_FILEPATH.split('_')[3].split('.')[0]  # cm
 
 
 # -----------------------------------------------------------------------------
-# P A T H  P L O T T I N G
+# P A T H   P L O T T I N G
 
 def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
     """
@@ -76,7 +76,11 @@ def plotPath(pathTime, path, minLeft, maxRight, pixelSize):
 
 
 # -----------------------------------------------------------------------------
-# H A N D  T R A C K I N G  /  V I D E O  P R O C E S S I N G
+# T R E M O R   A M P L I T U D E   C A L C U L A T I O N
+
+
+# -----------------------------------------------------------------------------
+# H A N D   T R A C K I N G   &   V I D E O   P R O C E S S I N G
 
 def selectLandmarks():
     """
@@ -123,7 +127,7 @@ def computeTremorPath():
 
     minLeft = [VIDEO_WIDTH] * 3
     maxRight = [0] * 3
-    path = []
+    path = [[], [], []]
     pathFrameNumbers = []
     failedFrames = 0
 
@@ -184,14 +188,15 @@ def computeTremorPath():
                 # Array for storing x coordinates of finger pip joints:
                 fingerLandmarkX = [None] * 3
 
-                # Get x position (in terms of pixels) of the finger landmarks
-                # which were chosen above:
-                # (n.b. landmark coordinates are normalised to be between 0
-                #  and 1, so must be multiplied by video width)
                 for i in range(0, 3):
+                    # Get x position (in pixels) of the finger landmarks:
+                    # (n.b. landmark coordinates are normalised to be between 0
+                    #  and 1, so must be multiplied by video width)
                     fingerLandmarkX[i] = round(landmarks.landmark[
                         chosenLandmarks[i]].x * VIDEO_WIDTH)
 
+                    # For each landmark, if it is the furthest left or right
+                    # of any frame so far, save the x coordinate and frame:
                     if fingerLandmarkX[i] < minLeft[i]:
                         minLeft[i] = fingerLandmarkX[i]
                         if i == 1:
@@ -201,8 +206,8 @@ def computeTremorPath():
                         if i == 1:
                             maxRightFrame = frameWithLandmarks
 
-                # TODO: record path for all 3 fingers.
-                path.append(fingerLandmarkX[1])
+                    path[i].append(fingerLandmarkX[i])
+
                 pathFrameNumbers.append(frameN)
 
                 print('Frame ' + str(frameN) + '/' + str(END_FRAME)
@@ -224,11 +229,11 @@ def computeTremorPath():
 
     capture.release()
 
-    return path, pathFrameNumbers, minLeft[1], maxRight[1], failedFrames
+    return path, pathFrameNumbers, minLeft, maxRight, failedFrames
 
 
 # -----------------------------------------------------------------------------
-# C A M E R A  P A R A M E T E R  C A L C U L A T I O N
+# C A M E R A   P A R A M E T E R   C A L C U L A T I O N
 
 def getDepthError(depth):
     """
@@ -320,7 +325,7 @@ def printConfig():
     print('Tremor type to measure          : ' + tremorType.name)
     print('Hand landmarks to track         : ' + chosenLandmarksText)
     print('Video file path                 : ' + VIDEO_FILEPATH)
-    print('Video resolution and fps        : ' + 'nnnnxnnnn, nnfps')
+    print('Video resolution and fps        : ' + '??')
     print('Camera focal length             : ' + str(CAMERA_FOCAL_LENGTH) + 'mm')
     print('Camera 35mm equiv. focal length : ' + str(CAMERA_FOCAL_LENGTH_STD) + 'mm')
     print('Camera aspect ratio             : ' + str(CAMERA_NATIVE_ASPECT[0])
@@ -333,19 +338,20 @@ def printConfig():
         return
     else:
         sys.exit()
-    # TODO: print run mode (resting or postural), camera specs from constants, etc. before running.
 
 
 def main():
     print('------------------------------------------------------------------')
-    print('T R E M O R  A M P L I T U D E  M E A S U R E M E N T')
+    print('T R E M O R   A M P L I T U D E   M E A S U R E M E N T')
     print('------------------------------------------------------------------')
 
     global tremorType
     tremorType = Tremor.RESTING
-
+    
+    # Choose hand landmarks to track for tremor measurement:
     selectLandmarks()
 
+    # Print the configuration before starting video analysis:
     printConfig()
 
     # Compute the path of movement of the hand in the input video:
@@ -363,17 +369,19 @@ def main():
                                            CAMERA_NATIVE_ASPECT,
                                            CAMERA_VIDEO_ASPECT)
 
-    # Thus, calculate the size of each pixel in the video at a given depth:
+    # Thus, calculate the real-world size, in cm, of each pixel in the video at
+    # a given depth:
     pixelSize, pixelSizeError = calcPixelSize(VIDEO_WIDTH,
                                               videoSensorWidth,
                                               CAMERA_FOCAL_LENGTH,
                                               HAND_DEPTH)
 
-    plotPath(pathTime, path, minLeft, maxRight, pixelSize)
+    # Plot the path of the hand tremor over time:
+    plotPath(pathTime, path[1], minLeft[1], maxRight[1], pixelSize)
 
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
-    amplitudePixelDistance = maxRight - minLeft
+    amplitudePixelDistance = maxRight[1] - minLeft[1]
     amplitude = amplitudePixelDistance * pixelSize
 
     # There are two measurable sources of error:
