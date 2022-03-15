@@ -205,7 +205,7 @@ def selectLandmarks():
 
     else:
         print('Track MCP joint, IP joint and tip of thumb, or track MCP, PIP' +
-              ' and DIP joints of index finger?')
+              ' and DIP joints of\nindex finger?')
         inp = input('Type in thumb or index: ').upper()[0]
         if inp == 'T':
             chosenLandmarks = [mp_hands.HandLandmark.THUMB_MCP,
@@ -320,14 +320,7 @@ def computeTremorPath():
                 pathFrameNumbers.append(frameN)
 
                 print('Processing frame ' + str(frameN) + '/' + str(END_FRAME)
-                      + ' | landmark x positions: '
-                      + str(minLeft[0]) + ' <= ' + str(fingerLandmarkX[0])
-                      + ' <= ' + str(maxRight[0]) + ', '
-                      + str(minLeft[1]) + ' <= ' + str(fingerLandmarkX[1])
-                      + ' <= ' + str(maxRight[1]) + ', '
-                      + str(minLeft[2]) + ' <= ' + str(fingerLandmarkX[2])
-                      + ' <= ' + str(maxRight[2]),
-                      end='\r')
+                      + '...', end='\r')
 
         # Catch video read errors, including reaching end of the video:
         else:
@@ -502,9 +495,10 @@ def openCaptureAndGetVideoInfo():
     aspectRatio = videoWidth / videoHeight
     if aspectRatio != CAMERA_VIDEO_ASPECT[0] / CAMERA_VIDEO_ASPECT[1]:
         print('WARNING: Camera video aspect ratio may be wrong. This can' +
-              ' cause incorrect amplitude measurement. Consult the config' +
-              ' file to check this value. Alternatively this can be caused' +
-              ' by incorrectly selecting rest or postural tremor mode.')
+              ' cause incorrect\namplitude measurement. Consult the config' +
+              ' file to check this value is correct.\nAlternatively this can' +
+              ' be caused by incorrectly selecting resting or postural\n' +
+              'tremor mode.')
 
 
 def printConfig():
