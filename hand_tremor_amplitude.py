@@ -28,17 +28,22 @@ CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
 CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
 # Video file:
-VIDEO_FILEPATH = 'data/phase3/resting_o_100_0.MOV'
+VIDEO_FILEPATH = 'data/phase3/postural_o_50_5.MOV'
 VIDEO_WIDTH = 1080  # resolution, pixels
 VIDEO_FRAMERATE = 60  # frames per second
-START_FRAME = 1  # Frame of video to start tremor measurement at
-END_FRAME = 15 * VIDEO_FRAMERATE  # Frame of video to end tremor measurement at
+
+# Frame numbers to start and end tremor measurement / hand tracking at:
+START_FRAME = 1
+END_FRAME = 15 * VIDEO_FRAMERATE
 
 # Depth measurement value from TrueDepth sensor, in cm:
 HAND_DEPTH = int(VIDEO_FILEPATH.split('_')[2])
 
 # Display hand tracking in GUI, or use console only? (GUI -> much slower):
-GUI_HAND_TRACKING = False
+GUI_HAND_TRACKING = True
+
+# Run from command line parameters without user prompting, or not:
+AUTO_MODE = False
 
 # Tremor type to measure:
 tremorType = None
@@ -163,6 +168,22 @@ def calcPixelDistAmplitudeFromPath(path):
 # -----------------------------------------------------------------------------
 # H A N D   T R A C K I N G   &   V I D E O   P R O C E S S I N G
 
+def selectTremorType():
+    """
+    Set whether the input video which is to be processed depicts resting or
+    postural tremor.
+    """
+
+    global tremorType
+
+    inp = input('Measure resting or postural tremor? (r/p): ').lower()[0]
+    if inp == 'r':
+        tremorType = Tremor.RESTING
+    else:
+        tremorType = Tremor.POSTURAL
+    return
+
+
 def selectLandmarks():
     """
     Set finger landmarks to track, to use in calculating tremor amplitude.
@@ -171,20 +192,20 @@ def selectLandmarks():
     global chosenLandmarks, chosenLandmarksText
 
     if tremorType == Tremor.RESTING:
-        print('Track finger MCP joint (first knuckle), PIP joint, DIP joint or'
-              + ' finger tip?')
-        joint = input('Type in MCP, PIP, DIP, or TIP: ').upper()
-        if joint == 'MCP':
+        print('Track MCP joints (first knuckles), PIP joints, DIP joints or'
+              + ' tips of fingers?')
+        inp = input('Type in MCP, PIP, DIP, or TIP: ').upper()[0]
+        if inp == 'M':
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_MCP,
                                mp_hands.HandLandmark.MIDDLE_FINGER_MCP,
                                mp_hands.HandLandmark.INDEX_FINGER_MCP]
             chosenLandmarksText = 'Index, middle and ring finger MCP joints'
-        elif joint == 'PIP':
+        elif inp == 'P':
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_PIP,
                                mp_hands.HandLandmark.MIDDLE_FINGER_PIP,
                                mp_hands.HandLandmark.INDEX_FINGER_PIP]
             chosenLandmarksText = 'Index, middle and ring finger PIP joints'
-        elif joint == 'DIP':
+        elif inp == 'D':
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_DIP,
                                mp_hands.HandLandmark.MIDDLE_FINGER_DIP,
                                mp_hands.HandLandmark.INDEX_FINGER_DIP]
@@ -196,9 +217,19 @@ def selectLandmarks():
             chosenLandmarksText = 'Index, middle and ring finger tips'
 
     else:
-        chosenLandmarks = []
-        chosenLandmarksText = 'NOT YET IMPLEMENTED'
-        # TODO implement above
+        print('Track MCP joint, IP joint and tip of thumb, or track MCP, PIP' +
+              ' and DIP joints of index finger?')
+        inp = input('Type in thumb or index: ').upper()[0]
+        if inp == 'T':
+            chosenLandmarks = [mp_hands.HandLandmark.THUMB_MCP,
+                               mp_hands.HandLandmark.THUMB_IP,
+                               mp_hands.HandLandmark.THUMB_TIP]
+            chosenLandmarksText = 'Thumb tip, IP joint and MCP joint'
+        else:
+            chosenLandmarks = [mp_hands.HandLandmark.INDEX_FINGER_MCP,
+                               mp_hands.HandLandmark.INDEX_FINGER_PIP,
+                               mp_hands.HandLandmark.INDEX_FINGER_DIP]
+            chosenLandmarksText = 'Index finger MCP, PIP and DIP joints'
 
 
 def computeTremorPath():
@@ -240,6 +271,11 @@ def computeTremorPath():
 
             # Only process frame if within chosen time range:
             if START_FRAME <= frameN <= END_FRAME:
+
+                # Rotate postural tremor videos by 90 degrees (to allow tremor
+                # to be measured in the x direction):
+                if tremorType == Tremor.POSTURAL:
+                    frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
                 # Apply hand detection:
                 frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -429,10 +465,13 @@ def printConfig():
           + ':' + str(CAMERA_VIDEO_ASPECT[1]))
     print('Hand depth measurement          : ' + str(HAND_DEPTH) + 'cm')
 
-    if input('Check the above values; ok to continue? (y/n): ').lower() == 'y':
-        return
-    else:
-        sys.exit()
+    if not AUTO_MODE:
+        inp = input('Check above values; ok to continue? (y/n): ').lower()[0]
+        if inp == 'y':
+            return
+        else:
+            sys.exit()
+    return
 
 
 def main():
@@ -440,11 +479,13 @@ def main():
     print('T R E M O R   A M P L I T U D E   M E A S U R E M E N T')
     print('-' * 80)
 
-    global tremorType
-    tremorType = Tremor.RESTING
+    # Select whether the input video depicts resting or postural tremor:
+    if not AUTO_MODE:
+        selectTremorType()
 
     # Choose hand landmarks to track for tremor measurement:
-    selectLandmarks()
+    if not AUTO_MODE:
+        selectLandmarks()
 
     # Print the configuration before starting video analysis:
     printConfig()
