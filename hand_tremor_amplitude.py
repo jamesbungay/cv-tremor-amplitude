@@ -14,12 +14,12 @@ mp_drawing_styles = mp.solutions.drawing_styles
 
 
 class Tremor(Enum):
-    RESTING = 0
-    POSTURAL = 1
+    Resting = 0
+    Postural = 1
 
 
 # -----------------------------------------------------------------------------
-# C O N S T A N T S   A N D   g l o b a l   V a r i a b l e s
+# C O N S T A N T S   A N D   g l o b a l V a r i a b l e s
 
 # Camera parameters:
 CAMERA_FOCAL_LENGTH = None  # mm, focal length of camera lens
@@ -84,8 +84,8 @@ def plotPath(pathTime, path, pixelSize, amplitude):
 
     plt.xlabel('Time (seconds)')
     plt.ylabel('Tremor Amplitude (cm)')
-    plt.title('Waveform of a Tremor with an Amplitude of\n' +
-              '%.2fcm, Recorded at a Depth of %scm'
+    plt.title('Waveform of a %s Tremor with an Amplitude\n' % tremorType.name +
+              'of %.2fcm, Recorded at a Depth of %scm'
               % (amplitude, HAND_DEPTH))
 
     if plt.gcf().canvas.manager is not None:
@@ -178,7 +178,7 @@ def selectLandmarks():
 
     global chosenLandmarks, chosenLandmarksText
 
-    if tremorType == Tremor.RESTING:
+    if tremorType == Tremor.Resting:
         print('Track MCP joints (first knuckles), PIP joints, DIP joints or'
               + ' tips of fingers?')
         inp = input('Type in MCP, PIP, DIP, or TIP: ').upper()[0]
@@ -262,7 +262,7 @@ def computeTremorPath():
 
                 # Rotate postural tremor videos by 90 degrees (to allow tremor
                 # to be measured in the x direction):
-                if tremorType == Tremor.POSTURAL:
+                if tremorType == Tremor.Postural:
                     frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
                 # Apply hand detection:
@@ -455,7 +455,7 @@ def loadConstantsFromConfigFile():
     CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
     CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
 
-    VIDEO_FILEPATH = 'data/phase3/postural_o_50_5.MOV'
+    VIDEO_FILEPATH = 'data/phase3/resting_o_50_5.MOV'
 
     START_FRAME = 1
     END_FRAME = 900
@@ -477,9 +477,9 @@ def selectTremorType():
 
     inp = input('Measure resting or postural tremor? (r/p): ').lower()[0]
     if inp == 'r':
-        tremorType = Tremor.RESTING
+        tremorType = Tremor.Resting
     else:
-        tremorType = Tremor.POSTURAL
+        tremorType = Tremor.Postural
 
 
 def openCaptureAndGetVideoInfo():
@@ -487,7 +487,7 @@ def openCaptureAndGetVideoInfo():
 
     capture = cv2.VideoCapture(VIDEO_FILEPATH)
 
-    if tremorType == Tremor.RESTING:
+    if tremorType == Tremor.Resting:
         videoWidth = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         videoHeight = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     else:
