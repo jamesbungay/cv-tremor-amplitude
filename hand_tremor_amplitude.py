@@ -14,36 +14,36 @@ mp_drawing_styles = mp.solutions.drawing_styles
 
 
 class Tremor(Enum):
-    RESTING = 1
-    POSTURAL = 2
+    RESTING = 0
+    POSTURAL = 1
 
 
 # -----------------------------------------------------------------------------
-# C O N S T A N T S   A N D   G L O B A L S
+# C O N S T A N T S   A N D   g l o b a l   V a r i a b l e s
 
 # Camera parameters:
-CAMERA_FOCAL_LENGTH = 2.87  # mm, focal length of camera lens
-CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
-CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
-CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
+CAMERA_FOCAL_LENGTH = None  # mm, focal length of camera lens
+CAMERA_FOCAL_LENGTH_STD = None  # mm, 35mm equiv. focal length of camera lens
+CAMERA_NATIVE_ASPECT = None  # Native aspect ratio of camera sensor
+CAMERA_VIDEO_ASPECT = None  # Aspect ratio of video recorded by camera
 
 # Video file:
-VIDEO_FILEPATH = 'data/phase3/postural_o_50_5.MOV'
-VIDEO_WIDTH = 1080  # resolution, pixels
-VIDEO_FRAMERATE = 60  # frames per second
+VIDEO_FILEPATH = None
+videoWidth = -1  # resolution, pixels
+videoFramerate = -1  # frames per second
 
 # Frame numbers to start and end tremor measurement / hand tracking at:
-START_FRAME = 1
-END_FRAME = 15 * VIDEO_FRAMERATE
+START_FRAME = None
+END_FRAME = None
 
 # Depth measurement value from TrueDepth sensor, in cm:
-HAND_DEPTH = int(VIDEO_FILEPATH.split('_')[2])
+HAND_DEPTH = None
 
 # Display hand tracking in GUI, or use console only? (GUI -> much slower):
-GUI_HAND_TRACKING = True
+GUI_HAND_TRACKING = None
 
 # Run from command line parameters without user prompting, or not:
-AUTO_MODE = False
+AUTO_MODE = None
 
 # Tremor type to measure:
 tremorType = None
@@ -51,6 +51,9 @@ tremorType = None
 # Hand landmarks to track for tremor measurement:
 chosenLandmarks = None
 chosenLandmarksText = None
+
+# OpenCV video capture for tremor video:
+capture = None
 
 
 # -----------------------------------------------------------------------------
@@ -66,7 +69,7 @@ def plotPath(pathTime, path, pixelSize, amplitude):
 
     path = list(map(lambda x: (x - minLeft - ((maxRight - minLeft) / 2))
                     * pixelSize, path))
-    pathTime = list(map(lambda x: float((x - START_FRAME) / VIDEO_FRAMERATE),
+    pathTime = list(map(lambda x: float((x - START_FRAME) / videoFramerate),
                         pathTime))
 
     xPoints = np.array(pathTime)
@@ -168,22 +171,6 @@ def calcPixelDistAmplitudeFromPath(path):
 # -----------------------------------------------------------------------------
 # H A N D   T R A C K I N G   &   V I D E O   P R O C E S S I N G
 
-def selectTremorType():
-    """
-    Set whether the input video which is to be processed depicts resting or
-    postural tremor.
-    """
-
-    global tremorType
-
-    inp = input('Measure resting or postural tremor? (r/p): ').lower()[0]
-    if inp == 'r':
-        tremorType = Tremor.RESTING
-    else:
-        tremorType = Tremor.POSTURAL
-    return
-
-
 def selectLandmarks():
     """
     Set finger landmarks to track, to use in calculating tremor amplitude.
@@ -238,7 +225,9 @@ def computeTremorPath():
     hand. This path is used to calculate tremor amplitude:
     """
 
-    minLeft = [VIDEO_WIDTH] * 3
+    global capture
+
+    minLeft = [videoWidth] * 3
     maxRight = [0] * 3
     path = [[], [], []]
     pathFrameNumbers = []
@@ -259,7 +248,6 @@ def computeTremorPath():
         model_complexity=1  # Model accuracy, 1 == more accurate but slower
     )
 
-    capture = cv2.VideoCapture(VIDEO_FILEPATH)
     frameN = 0
 
     while (True):
@@ -314,7 +302,7 @@ def computeTremorPath():
                     # (n.b. landmark coordinates are normalised to be between 0
                     #  and 1, so must be multiplied by video width)
                     fingerLandmarkX[i] = round(landmarks.landmark[
-                        chosenLandmarks[i]].x * VIDEO_WIDTH)
+                        chosenLandmarks[i]].x * videoWidth)
 
                     # For each landmark, if it is the furthest left or right
                     # of any frame so far, save the x coordinate and frame:
@@ -444,16 +432,89 @@ def calcSensorSize(focalLength, focalLength35mmEquiv, sensorAspectRatio):
 
 
 # -----------------------------------------------------------------------------
-# M A I N
+# S E T U P   F U N C T I O N S
+
+def loadConstantsFromConfigFile():
+    """
+    Load a configuration file and set the constants from the values in the
+    file.
+    """
+
+    global CAMERA_FOCAL_LENGTH, CAMERA_FOCAL_LENGTH_STD
+    global CAMERA_NATIVE_ASPECT, CAMERA_VIDEO_ASPECT
+    global VIDEO_FILEPATH
+    global START_FRAME, END_FRAME
+    global HAND_DEPTH
+    global GUI_HAND_TRACKING
+    global AUTO_MODE
+    
+    # n.b. see global definitions at the top of the file to see their meaning.
+
+    CAMERA_FOCAL_LENGTH = 2.87  # mm, focal length of camera lens
+    CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
+    CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
+    CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
+
+    VIDEO_FILEPATH = 'data/phase3/postural_o_50_5.MOV'
+
+    START_FRAME = 1
+    END_FRAME = 900
+
+    HAND_DEPTH = int(VIDEO_FILEPATH.split('_')[2])
+
+    GUI_HAND_TRACKING = False
+
+    AUTO_MODE = False
+
+
+def selectTremorType():
+    """
+    Set whether the input video which is to be processed depicts resting or
+    postural tremor.
+    """
+
+    global tremorType
+
+    inp = input('Measure resting or postural tremor? (r/p): ').lower()[0]
+    if inp == 'r':
+        tremorType = Tremor.RESTING
+    else:
+        tremorType = Tremor.POSTURAL
+
+
+def openCaptureAndGetVideoInfo():
+    global capture, videoWidth, videoFramerate
+
+    capture = cv2.VideoCapture(VIDEO_FILEPATH)
+
+    if tremorType == Tremor.RESTING:
+        videoWidth = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+        videoHeight = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    else:
+        # Swap width and height, since postural videos are rotated 90 degrees:
+        videoWidth = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        videoHeight = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    videoFramerate = round(capture.get(cv2.CAP_PROP_FPS))
+
+    # Check that the aspect ratio in the config file matches the aspect ratio
+    # of the loaded video file:
+    aspectRatio = videoWidth / videoHeight
+    if aspectRatio != CAMERA_VIDEO_ASPECT[0] / CAMERA_VIDEO_ASPECT[1]:
+        print('WARNING: Camera video aspect ratio may be wrong. This can' +
+              ' cause incorrect amplitude measurement. Consult the config' +
+              ' file to check this value. Alternatively this can be caused' +
+              ' by incorrectly selecting rest or postural tremor mode.')
+
 
 def printConfig():
     print('-' * 80)
     print('Tremor type to measure          : ' + tremorType.name)
     print('Hand landmarks to track         : ' + chosenLandmarksText)
     print('Video file path                 : ' + VIDEO_FILEPATH)
-    resFpsStr = (str(VIDEO_WIDTH) + 'x' + str(int(VIDEO_WIDTH /
+    resFpsStr = (str(videoWidth) + 'x' + str(int(videoWidth /
                  CAMERA_VIDEO_ASPECT[0] * CAMERA_VIDEO_ASPECT[1])) + ', '
-                 + str(VIDEO_FRAMERATE) + 'fps')
+                 + str(videoFramerate) + 'fps')
     print('Video resolution and frame rate : ' + resFpsStr)
     print('Camera focal length             : ' + str(CAMERA_FOCAL_LENGTH)
           + 'mm')
@@ -467,21 +528,27 @@ def printConfig():
 
     if not AUTO_MODE:
         inp = input('Check above values; ok to continue? (y/n): ').lower()[0]
-        if inp == 'y':
-            return
-        else:
+        if inp != 'y':
             sys.exit()
-    return
 
+
+# -----------------------------------------------------------------------------
+# M A I N
 
 def main():
     print('-' * 80)
     print('T R E M O R   A M P L I T U D E   M E A S U R E M E N T')
     print('-' * 80)
 
+    # Load constants from config file:
+    loadConstantsFromConfigFile()
+
     # Select whether the input video depicts resting or postural tremor:
     if not AUTO_MODE:
         selectTremorType()
+
+    # Open video capture and get video info:
+    openCaptureAndGetVideoInfo()
 
     # Choose hand landmarks to track for tremor measurement:
     if not AUTO_MODE:
@@ -507,7 +574,7 @@ def main():
 
     # Thus, calculate the real-world size, in cm, of each pixel in the video at
     # a given depth:
-    pixelSize, pixelSizeError = calcPixelSize(VIDEO_WIDTH,
+    pixelSize, pixelSizeError = calcPixelSize(videoWidth,
                                               videoSensorWidth,
                                               CAMERA_FOCAL_LENGTH,
                                               HAND_DEPTH)
