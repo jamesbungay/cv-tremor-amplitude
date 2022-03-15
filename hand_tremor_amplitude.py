@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from enum import Enum
+import yaml
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,8 +30,8 @@ CAMERA_VIDEO_ASPECT = None  # Aspect ratio of video recorded by camera
 
 # Video file:
 VIDEO_FILEPATH = None
-videoWidth = -1  # resolution, pixels
-videoFramerate = -1  # frames per second
+videoWidth = None  # resolution, pixels
+videoFramerate = None  # frames per second
 
 # Frame numbers to start and end tremor measurement / hand tracking at:
 START_FRAME = None
@@ -181,7 +182,7 @@ def selectLandmarks():
     if tremorType == Tremor.Resting:
         print('Track MCP joints (first knuckles), PIP joints, DIP joints or'
               + ' tips of fingers?')
-        inp = input('Type in MCP, PIP, DIP, or TIP: ').upper()[0]
+        inp = input('> Type in MCP, PIP, DIP, or TIP: ').upper()[0]
         if inp == 'M':
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_MCP,
                                mp_hands.HandLandmark.MIDDLE_FINGER_MCP,
@@ -206,7 +207,7 @@ def selectLandmarks():
     else:
         print('Track MCP joint, IP joint and tip of thumb, or track MCP, PIP' +
               ' and DIP joints of\nindex finger?')
-        inp = input('Type in thumb or index: ').upper()[0]
+        inp = input('> Type in thumb or index: ').upper()[0]
         if inp == 'T':
             chosenLandmarks = [mp_hands.HandLandmark.THUMB_MCP,
                                mp_hands.HandLandmark.THUMB_IP,
@@ -433,31 +434,63 @@ def loadConstantsFromConfigFile():
     file.
     """
 
+    # n.b. see global definitions at the top of the file to see usage:
     global CAMERA_FOCAL_LENGTH, CAMERA_FOCAL_LENGTH_STD
     global CAMERA_NATIVE_ASPECT, CAMERA_VIDEO_ASPECT
-    global VIDEO_FILEPATH
     global START_FRAME, END_FRAME
-    global HAND_DEPTH
     global GUI_HAND_TRACKING
     global AUTO_MODE
-    
-    # n.b. see global definitions at the top of the file to see their meaning.
 
-    CAMERA_FOCAL_LENGTH = 2.87  # mm, focal length of camera lens
-    CAMERA_FOCAL_LENGTH_STD = 32  # mm, 35mm equiv. focal length of camera lens
-    CAMERA_NATIVE_ASPECT = (3, 4)  # Native aspect ratio of camera sensor
-    CAMERA_VIDEO_ASPECT = (9, 16)  # Aspect ratio of video recorded by camera
+    try:
+        with open('hta_config.yaml', 'r') as f:
+            config = yaml.safe_load(f)
 
-    VIDEO_FILEPATH = 'data/phase3/resting_o_50_5.MOV'
+        if not ('CAMERA_FOCAL_LENGTH' in config.keys()
+                and 'CAMERA_FOCAL_LENGTH_STD' in config.keys()
+                and 'CAMERA_NATIVE_ASPECT' in config.keys()
+                and 'CAMERA_VIDEO_ASPECT' in config.keys()
+                and 'START_FRAME' in config.keys()
+                and 'END_FRAME' in config.keys()
+                and 'GUI_HAND_TRACKING' in config.keys()
+                and 'AUTO_MODE' in config.keys()):
+            raise Exception
 
-    START_FRAME = 1
-    END_FRAME = 900
+        CAMERA_FOCAL_LENGTH = config.get('CAMERA_FOCAL_LENGTH')
+        CAMERA_FOCAL_LENGTH_STD = config.get('CAMERA_FOCAL_LENGTH_STD')
+        CAMERA_NATIVE_ASPECT = config.get('CAMERA_NATIVE_ASPECT')
+        CAMERA_VIDEO_ASPECT = config.get('CAMERA_VIDEO_ASPECT')
 
-    HAND_DEPTH = int(VIDEO_FILEPATH.split('_')[2])
+        START_FRAME = config.get('START_FRAME')
+        END_FRAME = config.get('END_FRAME')
 
-    GUI_HAND_TRACKING = False
+        GUI_HAND_TRACKING = config.get('GUI_HAND_TRACKING')
 
-    AUTO_MODE = False
+        AUTO_MODE = config.get('AUTO_MODE')
+
+    except FileNotFoundError:
+        print('ERROR: Could not find config file. There must be a config' +
+              ' file with the name\nhta_config.yaml in the directory this' +
+              ' is running from.')
+        sys.exit()
+
+    except Exception:
+        print('ERROR: Config file was found, but does not contain the' +
+              ' correct entries. Check\nthe config file and try again.')
+        sys.exit()
+
+
+def getVideoFilepath():
+    global VIDEO_FILEPATH
+
+    inp = str(input('> Enter file path of video: '))
+    VIDEO_FILEPATH = inp
+
+
+def getDepthMeasurement():
+    global HAND_DEPTH
+
+    inp = input('> Enter depth measurement from TrueDepth camera, in cm: ')
+    HAND_DEPTH = int(inp)
 
 
 def selectTremorType():
@@ -468,7 +501,7 @@ def selectTremorType():
 
     global tremorType
 
-    inp = input('Measure resting or postural tremor? (r/p): ').lower()[0]
+    inp = input('> Measure resting or postural tremor? (r/p): ').lower()[0]
     if inp == 'r':
         tremorType = Tremor.Resting
     else:
@@ -510,6 +543,8 @@ def printConfig():
                  CAMERA_VIDEO_ASPECT[0] * CAMERA_VIDEO_ASPECT[1])) + ', '
                  + str(videoFramerate) + 'fps')
     print('Video resolution and frame rate : ' + resFpsStr)
+    print('Video frames to analyse         : ' + str(START_FRAME) + ' to ' +
+          str(END_FRAME))
     print('Camera focal length             : ' + str(CAMERA_FOCAL_LENGTH)
           + 'mm')
     print('Camera 35mm equiv. focal length : ' + str(CAMERA_FOCAL_LENGTH_STD)
@@ -521,7 +556,7 @@ def printConfig():
     print('Hand depth measurement          : ' + str(HAND_DEPTH) + 'cm')
 
     if not AUTO_MODE:
-        inp = input('Check above values; ok to continue? (y/n): ').lower()[0]
+        inp = input('> Check above values; ok to continue? (y/n): ').lower()[0]
         if inp != 'y':
             sys.exit()
 
@@ -534,19 +569,21 @@ def main():
     print('T R E M O R   A M P L I T U D E   M E A S U R E M E N T')
     print('-' * 80)
 
-    # Load constants from config file:
     loadConstantsFromConfigFile()
 
-    # Select whether the input video depicts resting or postural tremor:
     if not AUTO_MODE:
+        getVideoFilepath()
+
+        getDepthMeasurement()
+
+        # Select whether the input video depicts resting or postural tremor:
         selectTremorType()
+
+        # Choose hand landmarks to track for tremor measurement:
+        selectLandmarks()
 
     # Open video capture and get video info:
     openCaptureAndGetVideoInfo()
-
-    # Choose hand landmarks to track for tremor measurement:
-    if not AUTO_MODE:
-        selectLandmarks()
 
     # Print the configuration before starting video analysis:
     printConfig()
