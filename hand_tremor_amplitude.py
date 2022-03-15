@@ -3,6 +3,7 @@
 from enum import Enum
 import yaml
 import sys
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
@@ -30,6 +31,7 @@ CAMERA_VIDEO_ASPECT = None  # Aspect ratio of video recorded by camera
 
 # Video file:
 VIDEO_FILEPATH = None
+videoFilename = None
 videoWidth = None  # resolution, pixels
 videoFramerate = None  # frames per second
 
@@ -52,6 +54,7 @@ tremorType = None
 # Hand landmarks to track for tremor measurement:
 chosenLandmarks = None
 chosenLandmarksText = None
+chosenLandmarksID = None
 
 # OpenCV video capture for tremor video:
 capture = None
@@ -92,7 +95,15 @@ def plotPath(pathTime, path, pixelSize, amplitude):
     if plt.gcf().canvas.manager is not None:
         plt.gcf().canvas.manager.set_window_title('Tremor Waveform')
 
-    plt.show()
+    if AUTO_MODE:
+        if not os.path.exists('data/figures'):
+            os.makedirs('data/figures')
+        plt.savefig('data/figures/' + videoFilename + '_' + chosenLandmarksID
+                    + '_figure.svg')
+        plt.savefig('data/figures/' + videoFilename + '_' + chosenLandmarksID
+                    + '_figure.png', dpi=300)
+    else:
+        plt.show()
 
 
 # -----------------------------------------------------------------------------
@@ -177,47 +188,59 @@ def selectLandmarks():
     Set finger landmarks to track, to use in calculating tremor amplitude.
     """
 
-    global chosenLandmarks, chosenLandmarksText
+    global chosenLandmarks, chosenLandmarksText, chosenLandmarksID
 
     if tremorType == Tremor.Resting:
-        print('Track MCP joints (first knuckles), PIP joints, DIP joints or'
-              + ' tips of fingers?')
-        inp = input('> Type in MCP, PIP, DIP, or TIP: ').upper()[0]
+        if AUTO_MODE:
+            inp = str(sys.argv[4]).upper()[0]
+        else:
+            print('Track MCP joints (first knuckles), PIP joints, DIP joints'
+                  + ' or tips of fingers?')
+            inp = input('> Type in MCP, PIP, DIP, or TIP: ').upper()[0]
         if inp == 'M':
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_MCP,
                                mp_hands.HandLandmark.MIDDLE_FINGER_MCP,
                                mp_hands.HandLandmark.INDEX_FINGER_MCP]
             chosenLandmarksText = 'Index, middle and ring finger MCP joints'
+            chosenLandmarksID = 'MCP'
         elif inp == 'P':
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_PIP,
                                mp_hands.HandLandmark.MIDDLE_FINGER_PIP,
                                mp_hands.HandLandmark.INDEX_FINGER_PIP]
             chosenLandmarksText = 'Index, middle and ring finger PIP joints'
+            chosenLandmarksID = 'PIP'
         elif inp == 'D':
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_DIP,
                                mp_hands.HandLandmark.MIDDLE_FINGER_DIP,
                                mp_hands.HandLandmark.INDEX_FINGER_DIP]
             chosenLandmarksText = 'Index, middle and ring finger DIP joints'
+            chosenLandmarksID = 'DIP'
         else:
             chosenLandmarks = [mp_hands.HandLandmark.RING_FINGER_TIP,
                                mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
                                mp_hands.HandLandmark.INDEX_FINGER_TIP]
             chosenLandmarksText = 'Index, middle and ring finger tips'
+            chosenLandmarksID = 'TIP'
 
     else:
-        print('Track MCP joint, IP joint and tip of thumb, or track MCP, PIP' +
-              ' and DIP joints of\nindex finger?')
-        inp = input('> Type in thumb or index: ').upper()[0]
+        if AUTO_MODE:
+            inp = str(sys.argv[4]).upper()[0]
+        else:
+            print('Track MCP joint, IP joint and tip of thumb, or track MCP,' +
+                  ' PIP and DIP joints of\nindex finger?')
+            inp = input('> Type in thumb or index: ').upper()[0]
         if inp == 'T':
             chosenLandmarks = [mp_hands.HandLandmark.THUMB_MCP,
                                mp_hands.HandLandmark.THUMB_IP,
                                mp_hands.HandLandmark.THUMB_TIP]
             chosenLandmarksText = 'Thumb tip, IP joint and MCP joint'
+            chosenLandmarksID = 'thumb'
         else:
             chosenLandmarks = [mp_hands.HandLandmark.INDEX_FINGER_MCP,
                                mp_hands.HandLandmark.INDEX_FINGER_PIP,
                                mp_hands.HandLandmark.INDEX_FINGER_DIP]
             chosenLandmarksText = 'Index finger MCP, PIP and DIP joints'
+            chosenLandmarksID = 'index'
 
 
 def computeTremorPath():
@@ -332,8 +355,12 @@ def computeTremorPath():
 
     # Left and right most frames can be manually viewed to check for erroneous
     # landmark placement which may affect measurement:
-    cv2.imwrite('data/leftMostFrame.jpg', minLeftFrame)
-    cv2.imwrite('data/rightMostFrame.jpg', maxRightFrame)
+    if not os.path.exists('data/key_frames'):
+        os.makedirs('data/key_frames')
+    cv2.imwrite('data/key_frames/' + videoFilename + '_leftMostFrame.jpg',
+                minLeftFrame)
+    cv2.imwrite('data/key_frames/' + videoFilename + '_rightMostFrame.jpg',
+                maxRightFrame)
 
     capture.release()
 
@@ -480,16 +507,26 @@ def loadConstantsFromConfigFile():
 
 
 def getVideoFilepath():
-    global VIDEO_FILEPATH
+    global VIDEO_FILEPATH, videoFilename
 
-    inp = str(input('> Enter file path of video: '))
+    if AUTO_MODE:
+        inp = str(sys.argv[1])
+    else:
+        inp = str(input('> Enter file path of video: '))
+
     VIDEO_FILEPATH = inp
+
+    videoFilename = VIDEO_FILEPATH.split('/')[-1].split('.')[0]
 
 
 def getDepthMeasurement():
     global HAND_DEPTH
 
-    inp = input('> Enter depth measurement from TrueDepth camera, in cm: ')
+    if AUTO_MODE:
+        inp = sys.argv[2]
+    else:
+        inp = input('> Enter depth measurement from TrueDepth camera, in cm: ')
+
     HAND_DEPTH = int(inp)
 
 
@@ -501,7 +538,11 @@ def selectTremorType():
 
     global tremorType
 
-    inp = input('> Measure resting or postural tremor? (r/p): ').lower()[0]
+    if AUTO_MODE:
+        inp = str(sys.argv[3]).lower()[0]
+    else:
+        inp = input('> Measure resting or postural tremor? (r/p): ').lower()[0]
+
     if inp == 'r':
         tremorType = Tremor.Resting
     else:
@@ -571,16 +612,19 @@ def main():
 
     loadConstantsFromConfigFile()
 
-    if not AUTO_MODE:
-        getVideoFilepath()
+    getVideoFilepath()
 
-        getDepthMeasurement()
+    getDepthMeasurement()
 
-        # Select whether the input video depicts resting or postural tremor:
-        selectTremorType()
+    # Select whether the input video depicts resting or postural tremor:
+    selectTremorType()
 
-        # Choose hand landmarks to track for tremor measurement:
-        selectLandmarks()
+    # Choose hand landmarks to track for tremor measurement:
+    selectLandmarks()
+
+    if AUTO_MODE:
+        print('Automatic mode is on - parameters were obtained from command'
+              + ' line arguments.')
 
     # Open video capture and get video info:
     openCaptureAndGetVideoInfo()
