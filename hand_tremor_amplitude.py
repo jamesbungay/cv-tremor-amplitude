@@ -2,6 +2,7 @@
 
 from enum import Enum
 import yaml
+import csv
 import sys
 import os
 import matplotlib.pyplot as plt
@@ -453,7 +454,7 @@ def calcSensorSize(focalLength, focalLength35mmEquiv, sensorAspectRatio):
 
 
 # -----------------------------------------------------------------------------
-# S E T U P   F U N C T I O N S
+# S E T U P   &   E T C   F U N C T I O N S
 
 def loadConstantsFromConfigFile():
     """
@@ -602,6 +603,36 @@ def printConfig():
             sys.exit()
 
 
+def writeOutResults(finalAmplitude, totalError, amplitudeError, pixelSizeError,
+                    trackingError, failedFrames):
+    if not os.path.isfile('data/hta_results.csv'):
+        with open('data/hta_results.csv', 'w', newline='') as csvfile:
+            w = csv.writer(csvfile, delimiter=',')
+            w.writerow(['Video File']
+                       + ['Tremor Type']
+                       + ['Hand Depth']
+                       + ['Tracking Landmarks']
+                       + ['Tremor Amplitude']
+                       + ['Total Error (+/-)']
+                       + ['Error due to depth sensor inaccuracy (+/-)']
+                       + ['Error due to pixel size discretion (+/-)']
+                       + ['Error due to hand tracking inaccuracy (+/-)']
+                       + ['Failed Frames'])
+
+    with open('data/hta_results.csv', 'a', newline='') as csvfile:
+        w = csv.writer(csvfile, delimiter=',')
+        w.writerow([videoFilename]
+                   + [tremorType.name]
+                   + [str('%.1f' % HAND_DEPTH)]
+                   + [chosenLandmarksID]
+                   + [str('%.2f' % finalAmplitude)]
+                   + [str('%.2f' % totalError)]
+                   + [str('%.2f' % amplitudeError)]
+                   + [str('%.2f' % pixelSizeError)]
+                   + [str('%.2f' % trackingError)]
+                   + [failedFrames])
+
+
 # -----------------------------------------------------------------------------
 # M A I N
 
@@ -682,6 +713,10 @@ def main():
     trackingError = calcErrorFromHandTracking(amplitude)
 
     totalError = amplitudeError + pixelSizeError + trackingError
+
+    if AUTO_MODE:
+        writeOutResults(finalAmplitude, totalError, amplitudeError,
+                        pixelSizeError, trackingError, failedFrames)
 
     # Print results to console:
     print('-' * 80)
