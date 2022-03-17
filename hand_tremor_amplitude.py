@@ -63,6 +63,9 @@ USE_CUSTOM_LANDMARKS = None
 # OpenCV video capture for tremor video:
 capture = None
 
+# Show or hide legend on plot:
+SHOW_PLOT_LEGEND = None
+
 
 # -----------------------------------------------------------------------------
 # P A T H   P L O T T I N G
@@ -85,10 +88,15 @@ def plotPath(pathTime, path, pixelSize, amplitude):
 
     plt.plot(xPoints, yPoints)
 
-    plt.axhline(y=max(path), color='dimgrey', linestyle='dotted')
+    plt.axhline(y=max(path), color='dimgrey', linestyle='dotted',
+                label='Range of tremor')
     plt.axhline(y=min(path), color='dimgrey', linestyle='dotted')
-    plt.axhline(y=amplitude/2, color='dimgrey', linestyle='dashed')
+    plt.axhline(y=amplitude/2, color='dimgrey', linestyle='dashed',
+                label='Filtered amplitude')
     plt.axhline(y=-(amplitude/2), color='dimgrey', linestyle='dashed')
+
+    if SHOW_PLOT_LEGEND:
+        leg = plt.legend(loc='center right', fontsize=8)
 
     plt.xlabel('Time (seconds)')
     plt.ylabel('Tremor Amplitude (cm)')
@@ -484,6 +492,7 @@ def loadConstantsFromConfigFile():
     global AUTO_MODE
     global USE_CUSTOM_LANDMARKS
     global chosenLandmarks
+    global SHOW_PLOT_LEGEND
 
     try:
         with open('hta_config.yaml', 'r') as f:
@@ -498,7 +507,8 @@ def loadConstantsFromConfigFile():
                 and 'GUI_HAND_TRACKING' in config.keys()
                 and 'AUTO_MODE' in config.keys()
                 and 'USE_CUSTOM_LANDMARKS' in config.keys()
-                and 'CUSTOM_LANDMARKS' in config.keys()):
+                and 'CUSTOM_LANDMARKS' in config.keys()
+                and 'SHOW_PLOT_LEGEND' in config.keys()):
             raise Exception
 
         CAMERA_FOCAL_LENGTH = config.get('CAMERA_FOCAL_LENGTH')
@@ -517,6 +527,8 @@ def loadConstantsFromConfigFile():
 
         if USE_CUSTOM_LANDMARKS:
             chosenLandmarks = config.get('CUSTOM_LANDMARKS')
+
+        SHOW_PLOT_LEGEND = config.get('SHOW_PLOT_LEGEND')
 
     except FileNotFoundError:
         print('ERROR: Could not find config file. There must be a config' +

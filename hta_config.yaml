@@ -21,3 +21,6 @@ AUTO_MODE: False
 # for landmark numbers.
 USE_CUSTOM_LANDMARKS: False
 CUSTOM_LANDMARKS: [18, 14, 10, 6]
+
+# Show or hide legend on plot:
+SHOW_PLOT_LEGEND: False
