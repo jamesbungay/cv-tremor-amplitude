@@ -268,8 +268,8 @@ def computeTremorPath():
     pathFrameNumbers = []
     failedFrames = 0
 
-    minLeftFrame = [None] * len(chosenLandmarks)
-    maxRightFrame = [None] * len(chosenLandmarks)
+    minLeftFrame = None
+    maxRightFrame = None
 
     print('-' * 80)
     print('Computing tremor amplitude for %s...' % VIDEO_FILEPATH)
@@ -343,10 +343,16 @@ def computeTremorPath():
                     # of any frame so far, save the x coordinate and frame:
                     if fingerLandmarkX[i] < minLeft[i]:
                         minLeft[i] = fingerLandmarkX[i]
-                        minLeftFrame[i] = frameWithLandmarks
+                        if len(chosenLandmarks) == 1:
+                            minLeftFrame = frameWithLandmarks
+                        elif i == 1:
+                            minLeftFrame = frameWithLandmarks
                     if fingerLandmarkX[i] > maxRight[i]:
                         maxRight[i] = fingerLandmarkX[i]
-                        maxRightFrame[i] = frameWithLandmarks
+                        if len(chosenLandmarks) == 1:
+                            maxRightFrame = frameWithLandmarks
+                        elif i == 1:
+                            maxRightFrame = frameWithLandmarks
 
                     path[i].append(fingerLandmarkX[i])
 
@@ -367,9 +373,9 @@ def computeTremorPath():
     if not os.path.exists('data/key_frames'):
         os.makedirs('data/key_frames')
     cv2.imwrite('data/key_frames/' + videoFilename + '_leftMostFrame.jpg',
-                minLeftFrame[1])
+                minLeftFrame)
     cv2.imwrite('data/key_frames/' + videoFilename + '_rightMostFrame.jpg',
-                maxRightFrame[1])
+                maxRightFrame)
 
     capture.release()
 
@@ -755,7 +761,10 @@ def main():
     print('-' * 80)
 
     # Plot the path of the hand tremor over time:
-    plotPath(pathTime, path[1], pixelSize, finalAmplitude)
+    if len(path) == 1:
+        plotPath(pathTime, path[0], pixelSize, finalAmplitude)
+    else:
+        plotPath(pathTime, path[1], pixelSize, finalAmplitude)
 
 
 main()
