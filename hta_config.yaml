@@ -14,4 +14,10 @@ GUI_HAND_TRACKING: False
 
 # Auto mode runs the program without any user prompting, by taking command line
 # inputs. It also stores the results into a csv file.
-AUTO_MODE: True
+AUTO_MODE: False
+
+# Custom sets of hand landmarks can be specified here to use for amplitude
+# calculation. See https://google.github.io/mediapipe/solutions/hands.html
+# for landmark numbers.
+USE_CUSTOM_LANDMARKS: True
+CUSTOM_LANDMARKS: [18, 14, 10, 6]

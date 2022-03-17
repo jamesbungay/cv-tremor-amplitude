@@ -57,6 +57,9 @@ chosenLandmarks = None
 chosenLandmarksText = None
 chosenLandmarksID = None
 
+# Obtained from config, should use custom specified landmarks or not?
+USE_CUSTOM_LANDMARKS = None
+
 # OpenCV video capture for tremor video:
 capture = None
 
@@ -192,6 +195,11 @@ def selectLandmarks():
     """
 
     global chosenLandmarks, chosenLandmarksText, chosenLandmarksID
+
+    if USE_CUSTOM_LANDMARKS:
+        chosenLandmarksText = 'User specified landmarks; see config file'
+        chosenLandmarksID = 'custom'
+        return
 
     if tremorType == Tremor.Resting:
         if AUTO_MODE:
@@ -468,6 +476,8 @@ def loadConstantsFromConfigFile():
     global START_FRAME, END_FRAME
     global GUI_HAND_TRACKING
     global AUTO_MODE
+    global USE_CUSTOM_LANDMARKS
+    global chosenLandmarks
 
     try:
         with open('hta_config.yaml', 'r') as f:
@@ -480,7 +490,9 @@ def loadConstantsFromConfigFile():
                 and 'START_FRAME' in config.keys()
                 and 'END_FRAME' in config.keys()
                 and 'GUI_HAND_TRACKING' in config.keys()
-                and 'AUTO_MODE' in config.keys()):
+                and 'AUTO_MODE' in config.keys()
+                and 'USE_CUSTOM_LANDMARKS' in config.keys()
+                and 'CUSTOM_LANDMARKS' in config.keys()):
             raise Exception
 
         CAMERA_FOCAL_LENGTH = config.get('CAMERA_FOCAL_LENGTH')
@@ -494,6 +506,11 @@ def loadConstantsFromConfigFile():
         GUI_HAND_TRACKING = config.get('GUI_HAND_TRACKING')
 
         AUTO_MODE = config.get('AUTO_MODE')
+
+        USE_CUSTOM_LANDMARKS = config.get('USE_CUSTOM_LANDMARKS')
+
+        if USE_CUSTOM_LANDMARKS:
+            chosenLandmarks = config.get('CUSTOM_LANDMARKS')
 
     except FileNotFoundError:
         print('ERROR: Could not find config file. There must be a config' +
