@@ -122,10 +122,12 @@ def calcErrorFromHandTracking(amplitude):
     Returns the error, in +/- cm.
     """
 
-    avg = sum(amplitude) / 3
+    avg = sum(amplitude) / len(amplitude)
 
-    rmse = math.sqrt((((amplitude[0] - avg) ** 2) + ((amplitude[1] - avg) ** 2)
-                      + ((amplitude[2] - avg) ** 2)) / 3)
+    rmse = 0
+    for a in amplitude:
+        rmse += (a - avg) ** 2
+    rmse = math.sqrt(rmse / len(amplitude))
 
     # Divide by two to get +/- value, rather than total error value:
     return rmse / 2
@@ -252,14 +254,14 @@ def computeTremorPath():
 
     global capture
 
-    minLeft = [videoWidth] * 3
-    maxRight = [0] * 3
-    path = [[], [], []]
+    minLeft = [videoWidth] * len(chosenLandmarks)
+    maxRight = [0] * len(chosenLandmarks)
+    path = [[] for i in range(len(chosenLandmarks))]
     pathFrameNumbers = []
     failedFrames = 0
 
-    minLeftFrame = None
-    maxRightFrame = None
+    minLeftFrame = [None] * len(chosenLandmarks)
+    maxRightFrame = [None] * len(chosenLandmarks)
 
     print('-' * 80)
     print('Computing tremor amplitude for %s...' % VIDEO_FILEPATH)
@@ -320,9 +322,9 @@ def computeTremorPath():
                     cv2.waitKey(1)
 
                 # Array for storing x coordinates of finger pip joints:
-                fingerLandmarkX = [None] * 3
+                fingerLandmarkX = [None] * len(chosenLandmarks)
 
-                for i in range(0, 3):
+                for i in range(0, len(chosenLandmarks)):
                     # Get x position (in pixels) of the finger landmarks:
                     # (n.b. landmark coordinates are normalised to be between 0
                     #  and 1, so must be multiplied by video width)
@@ -333,12 +335,10 @@ def computeTremorPath():
                     # of any frame so far, save the x coordinate and frame:
                     if fingerLandmarkX[i] < minLeft[i]:
                         minLeft[i] = fingerLandmarkX[i]
-                        if i == 1:
-                            minLeftFrame = frameWithLandmarks
+                        minLeftFrame[i] = frameWithLandmarks
                     if fingerLandmarkX[i] > maxRight[i]:
                         maxRight[i] = fingerLandmarkX[i]
-                        if i == 1:
-                            maxRightFrame = frameWithLandmarks
+                        maxRightFrame[i] = frameWithLandmarks
 
                     path[i].append(fingerLandmarkX[i])
 
@@ -359,9 +359,9 @@ def computeTremorPath():
     if not os.path.exists('data/key_frames'):
         os.makedirs('data/key_frames')
     cv2.imwrite('data/key_frames/' + videoFilename + '_leftMostFrame.jpg',
-                minLeftFrame)
+                minLeftFrame[1])
     cv2.imwrite('data/key_frames/' + videoFilename + '_rightMostFrame.jpg',
-                maxRightFrame)
+                maxRightFrame[1])
 
     capture.release()
 
@@ -687,9 +687,9 @@ def main():
 
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
-    amplitudePixelDistance = [None] * 3
-    amplitude = [None] * 3
-    for i in range(0, 3):
+    amplitudePixelDistance = [None] * len(chosenLandmarks)
+    amplitude = [None] * len(chosenLandmarks)
+    for i in range(0, len(chosenLandmarks)):
         # Calculate amplitude in pixels:
         amplitudePixelDistance[i] = calcPixelDistAmplitudeFromPath(path[i])
         # Convert amplitude from pixels to cm:
