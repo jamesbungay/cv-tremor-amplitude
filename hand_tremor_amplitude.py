@@ -380,9 +380,11 @@ def computeTremorPath():
     # landmark placement which may affect measurement:
     if not os.path.exists('data/key_frames'):
         os.makedirs('data/key_frames')
-    cv2.imwrite('data/key_frames/' + videoFilename + '_leftMostFrame.jpg',
+    cv2.imwrite('data/key_frames/' + videoFilename + '_' + chosenLandmarksID
+                + '_leftMostFrame.jpg',
                 minLeftFrame)
-    cv2.imwrite('data/key_frames/' + videoFilename + '_rightMostFrame.jpg',
+    cv2.imwrite('data/key_frames/' + videoFilename + '_' + chosenLandmarksID
+                + '_rightMostFrame.jpg',
                 maxRightFrame)
 
     capture.release()
@@ -639,7 +641,7 @@ def printConfig():
 
 
 def writeOutResults(finalAmplitude, totalError, amplitudeError, pixelSizeError,
-                    trackingError, failedFrames):
+                    trackingError, failedFrames, tremorPathRange):
     if not os.path.isfile('data/hta_results.csv'):
         with open('data/hta_results.csv', 'w', newline='') as csvfile:
             w = csv.writer(csvfile, delimiter=',')
@@ -652,7 +654,8 @@ def writeOutResults(finalAmplitude, totalError, amplitudeError, pixelSizeError,
                        + ['Error due to depth sensor inaccuracy (+/-)']
                        + ['Error due to pixel size discretion (+/-)']
                        + ['Error due to hand tracking inaccuracy (+/-)']
-                       + ['Failed Frames'])
+                       + ['Failed Frames']
+                       + ['Tremor Path Range'])
 
     with open('data/hta_results.csv', 'a', newline='') as csvfile:
         w = csv.writer(csvfile, delimiter=',')
@@ -665,7 +668,8 @@ def writeOutResults(finalAmplitude, totalError, amplitudeError, pixelSizeError,
                    + [str('%.2f' % amplitudeError)]
                    + [str('%.2f' % pixelSizeError)]
                    + [str('%.2f' % trackingError)]
-                   + [failedFrames])
+                   + [failedFrames]
+                   + [str('%.2f' % tremorPathRange)])
 
 
 # -----------------------------------------------------------------------------
@@ -723,16 +727,23 @@ def main():
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
     amplitudePixelDistance = [None] * len(chosenLandmarks)
+    tremorPathRangePixelDistance = [None] * len(chosenLandmarks)
     amplitude = [None] * len(chosenLandmarks)
+    tremorPathRange = [None] * len(chosenLandmarks)
     for i in range(0, len(chosenLandmarks)):
         # Calculate amplitude in pixels:
         amplitudePixelDistance[i] = calcPixelDistAmplitudeFromPath(path[i])
+        tremorPathRangePixelDistance[i] = max(path[i]) - min(path[i])
         # Convert amplitude from pixels to cm:
         amplitude[i] = amplitudePixelDistance[i] * pixelSize
+        tremorPathRange[i] = tremorPathRangePixelDistance[i] * pixelSize
 
     # Take the average of the tremor amplitudes from the three landmarks to
     # obtain a final value for tremor amplitude:
     finalAmplitude = sum(amplitude) / len(amplitude)
+
+    # Take the average of the tremorPathRange:
+    tremorPathRangeAvg = sum(tremorPathRange) / len(tremorPathRange)
 
     # Calculate error in the amplitute due to the error in depth measurement
     # from the TrueDepth sensor, which translates into error in the value of
@@ -751,7 +762,8 @@ def main():
 
     if AUTO_MODE:
         writeOutResults(finalAmplitude, totalError, amplitudeError,
-                        pixelSizeError, trackingError, failedFrames)
+                        pixelSizeError, trackingError, failedFrames,
+                        tremorPathRangeAvg)
 
     # Print results to console:
     print('-' * 80)
@@ -767,7 +779,9 @@ def main():
     print('-' * 80)
     print('n.b. Consult the saved left-most and right-most frames in the' +
           ' data folder to\nascertain the amplitude measurement, by checking' +
-          ' the hand landmark placement\nfor discrepencies.')
+          ' the hand landmark placement\nfor discrepencies, and by comparing' +
+          ' the frames to the measured tremor path\nrange of' +
+          ' %.2f cm.' % tremorPathRangeAvg)
     print('-' * 80)
     print('Frames where hand detection failed: %d' % failedFrames)
     print('-' * 80)
