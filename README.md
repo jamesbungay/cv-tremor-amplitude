@@ -1,4 +1,4 @@
-# cv-tremor-amplitude
+# Computer Vision Parkinson's Tremor Amplitude Measurement
 A project investigating the measurement of the amplitude of Parkinson's hand tremors using computer vision (namely hand tracking) methods. Written for my dissertation at the University of Manchester.
 
 ---
