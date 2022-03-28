@@ -100,8 +100,8 @@ def plotPath(pathTime, path, pixelSize, amplitude):
 
     plt.xlabel('Time (seconds)')
     plt.ylabel('Tremor Amplitude (cm)')
-    plt.title('Waveform of a %s Tremor with an Amplitude\n' % tremorType.name +
-              'of %.2fcm, Recorded at a Depth of %scm'
+    plt.title('Waveform of a %s Tremor with a Measured ' % tremorType.name +
+              'Median\nAmplitude of %.2fcm, Recorded at a Depth of %scm'
               % (amplitude, HAND_DEPTH))
 
     if plt.gcf().canvas.manager is not None:
@@ -120,6 +120,23 @@ def plotPath(pathTime, path, pixelSize, amplitude):
 
 # -----------------------------------------------------------------------------
 # T R E M O R   A M P L I T U D E   C A L C U L A T I O N
+
+def calcUpdrsRating(amplitude):
+    """
+    Converts an amplitude measurement (in cm) into an MDS-UPDRS rating.
+    """
+
+    if amplitude == 0:
+        return 0
+    elif 0 < amplitude < 1:
+        return 1
+    elif 1 <= amplitude < 3:
+        return 2
+    elif 3 <= amplitude < 10:
+        return 3
+    else:
+        return 4
+
 
 def calcErrorFromHandTracking(amplitude):
     """
@@ -181,17 +198,18 @@ def calcPixelDistAmplitudeFromPath(path):
 
     # Calculate standard deviation and median of amplitude samples:
     stdDv = np.std(amplitudeSamples)
-    median = np.median(amplitudeSamples)
+    amplitudeMedian = np.median(amplitudeSamples)
 
     # Filter outliers of amplitude samples by +/- two standard deviations
     # (only filter high outliers as I don't care about low values):
-    filteredAmplitudeSamples = filter(lambda ampl: ampl <= median
-                                      + (2 * stdDv), amplitudeSamples)
+    filteredAmplitudeSamples = filter(lambda ampl:
+                                      ampl <= amplitudeMedian + (2 * stdDv),
+                                      amplitudeSamples)
 
     # Finally, amplitude = the maximum of the differences between tremor
     # path peaks and troughs:
-    amplitude = max(filteredAmplitudeSamples)
-    return amplitude
+    amplitude2SdMax = max(filteredAmplitudeSamples)
+    return amplitudeMedian, amplitude2SdMax
 
 
 # -----------------------------------------------------------------------------
@@ -727,20 +745,28 @@ def main():
     # Note that amplitude here is peak-to-trough distance, as that is the
     # standard for tremor amplitude measurement:
     amplitudePixelDistance = [None] * len(chosenLandmarks)
+    tremorPath2SdMaxPixelDistance = [None] * len(chosenLandmarks)
     tremorPathRangePixelDistance = [None] * len(chosenLandmarks)
     amplitude = [None] * len(chosenLandmarks)
+    tremorPath2SdMax = [None] * len(chosenLandmarks)
     tremorPathRange = [None] * len(chosenLandmarks)
     for i in range(0, len(chosenLandmarks)):
         # Calculate amplitude in pixels:
-        amplitudePixelDistance[i] = calcPixelDistAmplitudeFromPath(path[i])
+        amplitudePixelDistance[i], tremorPath2SdMaxPixelDistance[i] = (
+            calcPixelDistAmplitudeFromPath(path[i]))
         tremorPathRangePixelDistance[i] = max(path[i]) - min(path[i])
         # Convert amplitude from pixels to cm:
         amplitude[i] = amplitudePixelDistance[i] * pixelSize
+        tremorPath2SdMax[i] = tremorPath2SdMaxPixelDistance[i] * pixelSize
         tremorPathRange[i] = tremorPathRangePixelDistance[i] * pixelSize
 
     # Take the average of the tremor amplitudes from the three landmarks to
     # obtain a final value for tremor amplitude:
     finalAmplitude = sum(amplitude) / len(amplitude)
+
+    tremorPath2SdMaxAvg = sum(tremorPath2SdMax) / len(tremorPath2SdMax)
+
+    updrsRating = calcUpdrsRating(finalAmplitude)
 
     # Take the average of the tremorPathRange:
     tremorPathRangeAvg = sum(tremorPathRange) / len(tremorPathRange)
@@ -767,7 +793,13 @@ def main():
 
     # Print results to console:
     print('-' * 80)
-    print('Tremor amplitude = %.2f +/- %.2f cm' % (finalAmplitude, totalError))
+    print('Median tremor amplitude = %.2f +/- %.2f cm' %
+          (finalAmplitude, totalError))
+    print('-' * 80)
+    print('UPDRS rating                       : %s' % updrsRating)
+    print('Tremor path range, 2 S.D. filtered : %.2f cm' %
+          tremorPath2SdMaxAvg)
+    print('Tremor path range                  : %.2f cm' % tremorPathRangeAvg)
     print('-' * 80)
     print('Error breakdown:')
     print('  1. Error due to depth sensor inaccuracy  : +/- %.2f cm'
