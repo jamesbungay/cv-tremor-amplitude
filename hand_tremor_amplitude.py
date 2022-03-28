@@ -92,17 +92,19 @@ def plotPath(pathTime, path, pixelSize, amplitude):
                 label='Range of tremor')
     plt.axhline(y=min(path), color='dimgrey', linestyle='dotted')
     plt.axhline(y=amplitude/2, color='dimgrey', linestyle='dashed',
-                label='Filtered amplitude')
+                label='Median amplitude')
     plt.axhline(y=-(amplitude/2), color='dimgrey', linestyle='dashed')
-
-    if SHOW_PLOT_LEGEND:
-        leg = plt.legend(loc='center right', fontsize=8)
 
     plt.xlabel('Time (seconds)')
     plt.ylabel('Tremor Amplitude (cm)')
     plt.title('Waveform of a %s Tremor with a Measured ' % tremorType.name +
               'Median\nAmplitude of %.2fcm, Recorded at a Depth of %scm'
               % (amplitude, HAND_DEPTH))
+
+    if SHOW_PLOT_LEGEND:
+        leg = plt.legend(ncol=2, bbox_to_anchor=(0.79, -0.15), fontsize=8)
+        plt.tight_layout()
+        plt.subplots_adjust(left=0.125, right=0.9, top=0.88, bottom=0.185)
 
     if plt.gcf().canvas.manager is not None:
         plt.gcf().canvas.manager.set_window_title('Tremor Waveform')
