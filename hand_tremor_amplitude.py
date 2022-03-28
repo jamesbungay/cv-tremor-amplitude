@@ -658,8 +658,9 @@ def printConfig():
             sys.exit()
 
 
-def writeOutResults(finalAmplitude, totalError, amplitudeError, pixelSizeError,
-                    trackingError, failedFrames, tremorPathRange):
+def writeOutResults(finalAmplitude, tremorPathRange,
+                    tremorPathRange2SdFiltered, totalError, amplitudeError,
+                    pixelSizeError, trackingError, failedFrames):
     if not os.path.isfile('data/hta_results.csv'):
         with open('data/hta_results.csv', 'w', newline='') as csvfile:
             w = csv.writer(csvfile, delimiter=',')
@@ -667,13 +668,14 @@ def writeOutResults(finalAmplitude, totalError, amplitudeError, pixelSizeError,
                        + ['Tremor Type']
                        + ['Hand Depth']
                        + ['Tracking Landmarks']
-                       + ['Tremor Amplitude']
+                       + ['Median Tremor Amplitude']
+                       + ['Tremor Path Range']
+                       + ['Tremor Path Range 2 S.D. filtered']
                        + ['Total Error (+/-)']
                        + ['Error due to depth sensor inaccuracy (+/-)']
                        + ['Error due to pixel size discretion (+/-)']
                        + ['Error due to hand tracking inaccuracy (+/-)']
-                       + ['Failed Frames']
-                       + ['Tremor Path Range'])
+                       + ['Failed Frames'])
 
     with open('data/hta_results.csv', 'a', newline='') as csvfile:
         w = csv.writer(csvfile, delimiter=',')
@@ -682,12 +684,13 @@ def writeOutResults(finalAmplitude, totalError, amplitudeError, pixelSizeError,
                    + [str('%.1f' % HAND_DEPTH)]
                    + [chosenLandmarksID]
                    + [str('%.2f' % finalAmplitude)]
+                   + [str('%.2f' % tremorPathRange)]
+                   + [str('%.2f' % tremorPathRange2SdFiltered)]
                    + [str('%.2f' % totalError)]
                    + [str('%.2f' % amplitudeError)]
                    + [str('%.2f' % pixelSizeError)]
                    + [str('%.2f' % trackingError)]
-                   + [failedFrames]
-                   + [str('%.2f' % tremorPathRange)])
+                   + [failedFrames])
 
 
 # -----------------------------------------------------------------------------
@@ -787,9 +790,9 @@ def main():
     totalError = amplitudeError + pixelSizeError + trackingError
 
     if AUTO_MODE:
-        writeOutResults(finalAmplitude, totalError, amplitudeError,
-                        pixelSizeError, trackingError, failedFrames,
-                        tremorPathRangeAvg)
+        writeOutResults(finalAmplitude, tremorPathRangeAvg,
+                        tremorPath2SdMaxAvg, totalError, amplitudeError,
+                        pixelSizeError, trackingError, failedFrames)
 
     # Print results to console:
     print('-' * 80)
