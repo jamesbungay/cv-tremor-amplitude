@@ -101,6 +101,14 @@ def plotPath(pathTime, path, pixelSize, amplitude):
               'Median\nAmplitude of %.2fcm, Recorded at a Depth of %scm'
               % (amplitude, HAND_DEPTH))
 
+    if AUTO_MODE:
+        if not os.path.exists('data/figures'):
+            os.makedirs('data/figures')
+        plt.savefig('data/figures/' + videoFilename + '_' + chosenLandmarksID
+                    + '_figure.svg')
+        plt.savefig('data/figures/' + videoFilename + '_' + chosenLandmarksID
+                    + '_figure.png', dpi=300)
+
     if SHOW_PLOT_LEGEND:
         leg = plt.legend(ncol=2, bbox_to_anchor=(0.79, -0.15), fontsize=8)
         plt.tight_layout()
@@ -113,9 +121,9 @@ def plotPath(pathTime, path, pixelSize, amplitude):
         if not os.path.exists('data/figures'):
             os.makedirs('data/figures')
         plt.savefig('data/figures/' + videoFilename + '_' + chosenLandmarksID
-                    + '_figure.svg')
+                    + '_figure_with_legend.svg')
         plt.savefig('data/figures/' + videoFilename + '_' + chosenLandmarksID
-                    + '_figure.png', dpi=300)
+                    + '_figure_with_legend.png', dpi=300)
     else:
         plt.show()
 
