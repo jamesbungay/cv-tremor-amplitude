@@ -583,7 +583,7 @@ def getDepthMeasurement():
     else:
         inp = input('> Enter depth measurement from TrueDepth camera, in cm: ')
 
-    HAND_DEPTH = int(inp)
+    HAND_DEPTH = float(inp)
 
 
 def selectTremorType():
