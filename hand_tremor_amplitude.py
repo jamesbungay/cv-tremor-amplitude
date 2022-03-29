@@ -671,7 +671,7 @@ def printConfig():
             sys.exit()
 
 
-def writeOutResults(finalAmplitude, tremorPathRange,
+def writeOutResults(finalAmplitude, updrsRating, tremorPathRange,
                     amplitude2SdMax, totalError, amplitudeError,
                     pixelSizeError, trackingError, failedFrames):
     if not os.path.isfile('data/hta_results.csv'):
@@ -681,6 +681,7 @@ def writeOutResults(finalAmplitude, tremorPathRange,
                        + ['Tremor Type']
                        + ['Hand Depth']
                        + ['Tracking Landmarks']
+                       + ['UPDRS Severity Rating']
                        + ['Median Tremor Amplitude']
                        + ['Tremor Path Range']
                        + ['Maximum Tremor Amplitude 2 S.D. filtered']
@@ -696,6 +697,7 @@ def writeOutResults(finalAmplitude, tremorPathRange,
                    + [tremorType.name]
                    + [str('%.1f' % HAND_DEPTH)]
                    + [chosenLandmarksID]
+                   + [str(updrsRating)]
                    + [str('%.2f' % finalAmplitude)]
                    + [str('%.2f' % tremorPathRange)]
                    + [str('%.2f' % amplitude2SdMax)]
@@ -804,7 +806,7 @@ def main():
     updrsRating = calcUpdrsRating(finalAmplitude, totalError)
 
     if AUTO_MODE:
-        writeOutResults(finalAmplitude, tremorPathRangeAvg,
+        writeOutResults(finalAmplitude, updrsRating, tremorPathRangeAvg,
                         amplitude2SdMaxAvg, totalError, amplitudeError,
                         pixelSizeError, trackingError, failedFrames)
 
