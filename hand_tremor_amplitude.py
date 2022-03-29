@@ -131,18 +131,21 @@ def plotPath(pathTime, path, pixelSize, amplitude):
 # -----------------------------------------------------------------------------
 # T R E M O R   A M P L I T U D E   C A L C U L A T I O N
 
-def calcUpdrsRating(amplitude):
+def calcUpdrsRating(amplitude, totalAmplitudeError):
     """
     Converts an amplitude measurement (in cm) into an MDS-UPDRS rating.
     """
 
-    if amplitude == 0:
+    # n.b. the first value is 0.01, not 0, to account for floating-point error.
+    # The error is subtracted from amplitude for the first classification,
+    # otherwise a UPDRS rating of 0 would realistically never be returned:
+    if (amplitude - totalAmplitudeError) <= 0.01:
         return 0
-    elif 0 < amplitude < 1:
+    elif amplitude < 1:
         return 1
-    elif 1 <= amplitude < 3:
+    elif amplitude < 3:
         return 2
-    elif 3 <= amplitude < 10:
+    elif amplitude < 10:
         return 3
     else:
         return 4
@@ -779,8 +782,6 @@ def main():
 
     amplitude2SdMaxAvg = sum(amplitude2SdMax) / len(amplitude2SdMax)
 
-    updrsRating = calcUpdrsRating(finalAmplitude)
-
     # Take the average of the tremorPathRange:
     tremorPathRangeAvg = sum(tremorPathRange) / len(tremorPathRange)
 
@@ -798,6 +799,9 @@ def main():
     trackingError = calcErrorFromHandTracking(amplitude)
 
     totalError = amplitudeError + pixelSizeError + trackingError
+
+    # Calculate an MDS-UPDRS tremor severity rating from the amplitude:
+    updrsRating = calcUpdrsRating(finalAmplitude, totalError)
 
     if AUTO_MODE:
         writeOutResults(finalAmplitude, tremorPathRangeAvg,
