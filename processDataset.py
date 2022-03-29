@@ -1,4 +1,4 @@
- 49.9 75.4 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import os
 

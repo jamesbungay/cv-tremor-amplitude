@@ -86,7 +86,7 @@ def plotPath(pathTime, path, pixelSize, amplitude):
     xPoints = np.array(pathTime)
     yPoints = np.array(path)
 
-    plt.plot(xPoints, yPoints)
+    plt.plot(xPoints, yPoints, label='Hand position')
 
     plt.axhline(y=max(path), color='dimgrey', linestyle='dotted',
                 label='Range of tremor')
@@ -110,7 +110,7 @@ def plotPath(pathTime, path, pixelSize, amplitude):
                     + '_figure.png', dpi=300)
 
     if SHOW_PLOT_LEGEND:
-        leg = plt.legend(ncol=2, bbox_to_anchor=(0.79, -0.15), fontsize=8)
+        leg = plt.legend(ncol=3, bbox_to_anchor=(0.93, -0.15), fontsize=8)
         plt.tight_layout()
         plt.subplots_adjust(left=0.125, right=0.9, top=0.88, bottom=0.185)
 
