@@ -195,12 +195,19 @@ def calcPixelDistAmplitudeFromPath(path):
     # Find peaks and troughs of tremor path (they are at the point where
     # gradient changes from positive to negative or vice versa):
     peaksAndTroughs = []
-    positiveGrad = pathDerivative[0] >= 0
-    for i in range(1, len(pathDerivative)):
+    lastStepGradIsPos = pathDerivative[0] >= 0
+    for i in range(1, len(pathDerivative) - 3):
+        # Skip step if gradient is 0 (prevents anomalous peaks being detected):
+        if pathDerivative[i] == 0:
+            continue
         # If gradient has switched from positive to negative or v.v.:
-        if positiveGrad != (pathDerivative[i] >= 0):
-            positiveGrad = not positiveGrad
-            peaksAndTroughs.append(path[i])
+        if lastStepGradIsPos != (pathDerivative[i] >= 0):
+            # Ignore small peaks or troughs (caused by sample noise), by
+            # checking if the gradient quickly reverts back to what it was
+            # before:
+            if lastStepGradIsPos != (pathDerivative[i+3] >= 0):
+                peaksAndTroughs.append(path[i])
+                lastStepGradIsPos = not lastStepGradIsPos
 
     # Calculate the differences between neighbouring peaks and troughs, i.e.
     # the pixel distance of each 'oscillation' of tremor:
