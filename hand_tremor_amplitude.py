@@ -794,20 +794,21 @@ def main():
     # Take the average of the tremorPathRange:
     tremorPathRangeAvg = sum(tremorPathRange) / len(tremorPathRange)
 
-    # Calculate error in the amplitute due to the error in depth measurement
+    # Calculate error in the amplitude due to the error in depth measurement
     # from the TrueDepth sensor, which translates into error in the value of
     # pixelSize:
-    amplitudeError = finalAmplitude * pixelSizeError
+    # (finalAmplitude, in cm, is converted back to amplitude in pixels for this)
+    amplitudeError = (finalAmplitude / pixelSize) * pixelSizeError
 
     # Calcluate error due to each pixel representing a discrete area of
     # continuous space; i.e. occurs since a hand landmark may not be at the
     # very centre of a pixel, but somewhere between either side:
-    pixelSizeError = (0.5 * pixelSize) * 2  # Bad code, to emphasise meaning
+    pixelDiscretionError = (0.5 * pixelSize) * 2  # Bad code, to emphasise meaning
 
     # Calculate error due to inaccuracy in hand tracking:
     trackingError = calcErrorFromHandTracking(amplitude)
 
-    totalError = amplitudeError + pixelSizeError + trackingError
+    totalError = amplitudeError + pixelDiscretionError + trackingError
 
     # Calculate an MDS-UPDRS tremor severity rating from the amplitude:
     updrsRating = calcUpdrsRating(finalAmplitude, totalError)
@@ -815,7 +816,7 @@ def main():
     if AUTO_MODE:
         writeOutResults(finalAmplitude, updrsRating, tremorPathRangeAvg,
                         amplitude2SdMaxAvg, totalError, amplitudeError,
-                        pixelSizeError, trackingError, failedFrames)
+                        pixelDiscretionError, trackingError, failedFrames)
 
     # Print results to console:
     print('-' * 80)
@@ -832,7 +833,7 @@ def main():
     print('  1. Error due to depth sensor inaccuracy  : +/- %.2f cm'
           % amplitudeError)
     print('  2. Error due to pixel size discretion    : +/- %.2f cm'
-          % pixelSizeError)
+          % pixelDiscretionError)
     print('  3. Error due to hand tracking inaccuracy : +/- %.2f cm'
           % trackingError)
     print('-' * 80)

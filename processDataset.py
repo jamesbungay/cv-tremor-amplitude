@@ -75,10 +75,10 @@ os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_3.MOV 100.
 os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_3.MOV 100.0 resting DIP')
 os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_3.MOV 100.0 resting TIP')
 
-os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_4.MOV 48.2 resting MCP')
-os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_4.MOV 48.2 resting PIP')
-os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_4.MOV 48.2 resting DIP')
-os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_4.MOV 48.2 resting TIP')
+os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_4.MOV 100.5 resting MCP')
+os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_4.MOV 100.5 resting PIP')
+os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_4.MOV 100.5 resting DIP')
+os.system('python3 hand_tremor_amplitude.py data/phase3/resting_j_100_4.MOV 100.5 resting TIP')
 
 
 os.system('python3 hand_tremor_amplitude.py data/phase3/resting_o_50_0.MOV 49.9 resting MCP')
